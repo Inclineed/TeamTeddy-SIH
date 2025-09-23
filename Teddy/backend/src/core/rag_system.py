@@ -269,6 +269,43 @@ ANSWER:"""
                     logger.error(f"Failed to generate answer after {self.config.max_retries} attempts")
                     raise
     
+    def _generate_answer_stream(self, prompt: str):
+        """Generate streaming answer using Ollama Phi3:mini model"""
+        for attempt in range(self.config.max_retries):
+            try:
+                response = self.ollama_client.chat(
+                    model=self.config.llm_model,
+                    messages=[
+                        {
+                            'role': 'user',
+                            'content': prompt
+                        }
+                    ],
+                    options={
+                        'temperature': self.config.temperature,
+                        'top_p': 0.9,
+                        'top_k': 40
+                    },
+                    stream=True  # Enable streaming
+                )
+                
+                # Yield each chunk of the response
+                for chunk in response:
+                    if 'message' in chunk and 'content' in chunk['message']:
+                        content = chunk['message']['content']
+                        if content:  # Only yield non-empty content
+                            yield content
+                            
+                return  # Exit successfully after streaming
+                    
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1} failed for streaming answer generation: {e}")
+                if attempt < self.config.max_retries - 1:
+                    time.sleep(self.config.retry_delay)
+                else:
+                    logger.error(f"Failed to generate streaming answer after {self.config.max_retries} attempts")
+                    raise
+    
     async def answer_question(self, question: str, max_results: int = 5) -> Dict[str, Any]:
         """
         Answer a question using RAG with intelligent query classification
@@ -432,6 +469,202 @@ Answer:"""
                     "method": "error",
                     "error": str(e),
                     "fallback_error": str(fallback_error)
+                }
+    
+    async def answer_question_stream(self, question: str, max_results: int = 5):
+        """
+        Stream answer generation for a question using RAG with intelligent query classification
+        
+        Args:
+            question: The question to answer
+            max_results: Maximum number of chunks to retrieve for context
+            
+        Yields:
+            Dictionary chunks containing streamed answer parts and metadata
+        """
+        start_time = time.time()
+        
+        try:
+            # Step 1: Classify the query
+            classification = self._classify_query_intent(question)
+            logger.info(f"Query classification: {classification}")
+            
+            # Yield initial metadata
+            yield {
+                "type": "metadata",
+                "classification": classification,
+                "method": "rag_with_context" if classification["needs_context"] else "direct_answer"
+            }
+            
+            # Step 2: Route based on classification
+            if not classification["needs_context"]:
+                # Generate direct answer without document context
+                logger.info("Generating direct answer without document context")
+                prompt = f"""You are a helpful AI assistant. Answer the following question directly and concisely:
+
+Question: {question}
+
+Answer:"""
+                
+                yield {"type": "method", "method": "direct_answer"}
+                
+                for chunk in self._generate_answer_stream(prompt):
+                    yield {"type": "content", "content": chunk}
+                
+                yield {
+                    "type": "final_metadata",
+                    "sources": [],
+                    "context_used": False,
+                    "response_time": time.time() - start_time,
+                    "method": "direct_answer"
+                }
+                return
+            
+            # Step 3: Proceed with RAG pipeline for context-dependent queries
+            logger.info("Using RAG pipeline with document context")
+            
+            # Use the old search engine interface for backward compatibility
+            search_results = self.search_engine.search(
+                query=question,
+                n_results=max_results,
+                filter_metadata=None
+            )
+            
+            if not search_results:
+                # No relevant context found, provide direct answer with note
+                logger.warning("No relevant context found, falling back to direct answer")
+                prompt = f"""You are a helpful AI assistant. Answer the following question directly, and mention that this is based on general knowledge as no relevant documents were found:
+
+Question: {question}
+
+Answer:"""
+                
+                yield {"type": "method", "method": "fallback_direct_answer"}
+                
+                for chunk in self._generate_answer_stream(prompt):
+                    yield {"type": "content", "content": chunk}
+                
+                yield {
+                    "type": "final_metadata",
+                    "sources": [],
+                    "context_used": False,
+                    "response_time": time.time() - start_time,
+                    "method": "fallback_direct_answer",
+                    "fallback_reason": "no_relevant_context"
+                }
+                return
+            
+            # Step 4: Evaluate context relevance
+            max_score = max(result.score for result in search_results)
+            
+            if max_score < self.config.context_threshold:
+                # Context not relevant enough, provide direct answer with note
+                logger.info(f"Context relevance too low (max_score: {max_score:.3f} < threshold: {self.config.context_threshold})")
+                prompt = f"""You are a helpful AI assistant. Answer the following question directly, and mention that this is based on general knowledge as the document context was not sufficiently relevant:
+
+Question: {question}
+
+Answer:"""
+                
+                yield {"type": "method", "method": "low_relevance_direct_answer"}
+                
+                for chunk in self._generate_answer_stream(prompt):
+                    yield {"type": "content", "content": chunk}
+                
+                sources = [{"content": result.content, "score": result.score, "metadata": result.metadata} 
+                          for result in search_results[:3]]
+                
+                yield {
+                    "type": "final_metadata",
+                    "sources": sources,
+                    "context_used": False,
+                    "response_time": time.time() - start_time,
+                    "method": "low_relevance_direct_answer",
+                    "max_relevance_score": max_score
+                }
+                return
+            
+            # Step 5: Generate answer with document context
+            logger.info(f"Using document context (max relevance: {max_score:.3f})")
+            
+            # Prepare context from retrieved chunks
+            context_pieces = []
+            sources = []
+            
+            for result in search_results:
+                context_pieces.append(f"Context: {result.content}")
+                sources.append({
+                    "content": result.content,
+                    "score": result.score,
+                    "metadata": result.metadata
+                })
+            
+            context = "\n\n".join(context_pieces)
+            
+            # Create the prompt with context
+            prompt = f"""You are a helpful AI assistant. Answer the following question based on the provided context. Be accurate, helpful, and cite the relevant information from the context when appropriate.
+
+Context:
+{context}
+
+Question: {question}
+
+Instructions:
+- Use the provided context to answer the question
+- If the context doesn't contain enough information, say so clearly
+- Be concise but comprehensive
+- Cite relevant parts of the context when making claims
+
+Answer:"""
+
+            # Yield sources information
+            yield {"type": "sources", "sources": sources[:3]}  # Limit to first 3 sources
+            yield {"type": "method", "method": "rag_with_context"}
+            
+            # Generate streaming response
+            for chunk in self._generate_answer_stream(prompt):
+                yield {"type": "content", "content": chunk}
+            
+            yield {
+                "type": "final_metadata",
+                "sources": sources,
+                "context_used": True,
+                "response_time": time.time() - start_time,
+                "method": "rag_with_context",
+                "max_relevance_score": max_score,
+                "num_sources": len(sources)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in answer_question_stream: {e}")
+            # Fallback to direct answer on error
+            try:
+                prompt = f"""You are a helpful AI assistant. I encountered an error while processing the question, but answer based on general knowledge:
+
+Question: {question}
+
+Answer:"""
+                
+                yield {"type": "method", "method": "error_fallback"}
+                yield {"type": "content", "content": "I encountered an error while processing your question, but here's what I can tell you based on general knowledge:\n\n"}
+                
+                for chunk in self._generate_answer_stream(prompt):
+                    yield {"type": "content", "content": chunk}
+                
+                yield {
+                    "type": "final_metadata",
+                    "sources": [],
+                    "context_used": False,
+                    "response_time": time.time() - start_time,
+                    "method": "error_fallback",
+                    "error": str(e)
+                }
+            except Exception as fallback_error:
+                yield {
+                    "type": "error",
+                    "error": str(e),
+                    "fallback_error": str(fallback_error),
+                    "response_time": time.time() - start_time
                 }
     
     async def answer_multiple_questions(self, questions: List[str]) -> List[Dict[str, Any]]:

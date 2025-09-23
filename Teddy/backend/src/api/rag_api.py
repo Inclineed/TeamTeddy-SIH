@@ -4,10 +4,11 @@ Provides REST API for question answering with document context
 """
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, AsyncGenerator
 import logging
+import json
 
 from src.core.rag_system import RAGQuestionAnswering, RAGConfig
 
@@ -113,6 +114,77 @@ async def ask_question_get(
         
     except Exception as e:
         logger.error(f"Error in GET question endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@rag_app.post("/ask-stream")
+async def ask_question_stream(request: QuestionRequest):
+    """
+    Ask a question and get a streaming answer with intelligent routing
+    Returns server-sent events with chunks of the answer as it's generated
+    """
+    try:
+        rag = get_rag_system()
+        
+        # Update config if provided
+        if request.temperature:
+            rag.config.temperature = request.temperature
+        
+        logger.info(f"Processing streaming question: '{request.question}'")
+        
+        async def generate_stream() -> AsyncGenerator[str, None]:
+            """Generate SSE stream for the answer"""
+            try:
+                async for chunk in rag.answer_question_stream(
+                    question=request.question,
+                    max_results=request.search_results or 5
+                ):
+                    # Format as Server-Sent Events
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                
+                # Send end of stream marker
+                yield "data: [DONE]\n\n"
+                
+            except Exception as e:
+                # Send error in SSE format
+                error_chunk = {
+                    "type": "error",
+                    "error": str(e)
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error setting up streaming response: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to setup streaming: {str(e)}")
+
+@rag_app.get("/ask-stream")
+async def ask_question_stream_get(
+    q: str = Query(..., description="The question to ask"),
+    n_results: int = Query(5, description="Number of context chunks to retrieve"),
+    temperature: float = Query(0.7, description="LLM temperature for answer generation")
+):
+    """
+    Ask a question via GET request and get streaming answer (convenient for testing)
+    """
+    try:
+        request = QuestionRequest(
+            question=q,
+            search_results=n_results,
+            temperature=temperature
+        )
+        return await ask_question_stream(request)
+        
+    except Exception as e:
+        logger.error(f"Error in GET streaming question endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @rag_app.post("/ask-multiple")
