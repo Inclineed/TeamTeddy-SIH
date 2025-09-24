@@ -89,6 +89,22 @@ function MessageBubble({ message, index }) {
             </div>
           ))}
           
+          {/* Streaming indicator */}
+          {message.isStreaming && (
+            <motion.span
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              style={{
+                display: 'inline-block',
+                marginLeft: '4px',
+                color: isUser ? 'var(--outer-space)' : 'var(--white-smoke)',
+                fontSize: '14px'
+              }}
+            >
+              ▊
+            </motion.span>
+          )}
+          
           {/* Display attached files */}
           {message.attachedFiles && message.attachedFiles.length > 0 && (
             <div style={{ marginTop: '8px' }}>
@@ -175,7 +191,7 @@ function ChatWindow({ activeChat, chatMessages, onUpdateMessages, chatSessions }
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!newMessage.trim() && attachedFiles.length === 0) || isLoading) return;
 
@@ -191,22 +207,160 @@ function ChatWindow({ activeChat, chatMessages, onUpdateMessages, chatSessions }
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     onUpdateMessages(activeChat, updatedMessages);
-    setNewMessage("");
-    setAttachedFiles([]);
 
-    // Simulate assistant response after a delay
-    setTimeout(() => {
-      const assistantMessage = {
-        id: updatedMessages.length + 1,
-        type: "assistant",
-        content: "Thanks for your message! I'm processing your request and will help you shortly.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // Create assistant message placeholder for streaming
+    const assistantMessage = {
+      id: updatedMessages.length + 1,
+      type: "assistant",
+      content: "",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isStreaming: true
+    };
+
+    const messagesWithAssistant = [...updatedMessages, assistantMessage];
+    setMessages(messagesWithAssistant);
+    onUpdateMessages(activeChat, messagesWithAssistant);
+
+    try {
+      let uploadedFileName = null;
+      
+      // Step 1: Upload files if any are attached
+      if (attachedFiles.length > 0) {
+        const formData = new FormData();
+        
+        // Add attached files to FormData (using 'file' as the key based on API)
+        attachedFiles.forEach((fileData) => {
+          formData.append('file', fileData.file);
+        });
+
+        const uploadResponse = await fetch('http://localhost:8000/api/v1/documents/upload-and-process', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`File upload failed: ${uploadResponse.status}`);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('Upload response:', uploadResult);
+        
+        // Extract the uploaded filename for RAG query
+        uploadedFileName = uploadResult.upload?.saved_filename || uploadResult.upload?.original_filename;
+        
+        if (uploadResult.status === 'completed') {
+          console.log(`✅ File processed successfully: ${uploadResult.indexing.indexed_chunks} chunks indexed`);
+        }
+      }
+
+      // Step 2: Send question to RAG streaming endpoint
+      const ragRequestBody = {
+        question: newMessage || "What is this document about?",
+        source_file: uploadedFileName || "string", // Use uploaded filename or default
+        search_results: 5,
+        temperature: 0.7
       };
-      const finalMessages = [...updatedMessages, assistantMessage];
+
+      const ragResponse = await fetch('http://localhost:8000/api/v1/rag/ask-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        body: JSON.stringify(ragRequestBody)
+      });
+
+      if (!ragResponse.ok) {
+        throw new Error(`RAG request failed: ${ragResponse.status}`);
+      }
+
+      // Handle streaming response
+      const reader = ragResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let streamedContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        
+        // Handle different response formats (SSE or plain text)
+        if (chunk.includes('data: ')) {
+          // Server-Sent Events format
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data.trim() === '[DONE]') {
+                break;
+              }
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  streamedContent += parsed.content;
+                }
+              } catch (parseError) {
+                // If not JSON, treat as plain text
+                streamedContent += data;
+              }
+            }
+          }
+        } else {
+          // Plain text streaming
+          streamedContent += chunk;
+        }
+        
+        // Update the assistant message with streamed content
+        const updatedAssistantMessage = {
+          ...assistantMessage,
+          content: streamedContent,
+          isStreaming: true
+        };
+        
+        const updatedMessagesWithStream = [
+          ...updatedMessages,
+          updatedAssistantMessage
+        ];
+        
+        setMessages(updatedMessagesWithStream);
+        onUpdateMessages(activeChat, updatedMessagesWithStream);
+      }
+
+      // Mark streaming as completed
+      const finalAssistantMessage = {
+        ...assistantMessage,
+        content: streamedContent,
+        isStreaming: false
+      };
+      
+      const finalMessages = [
+        ...updatedMessages,
+        finalAssistantMessage
+      ];
+      
       setMessages(finalMessages);
       onUpdateMessages(activeChat, finalMessages);
+
+    } catch (error) {
+      console.error('Error in RAG API calls:', error);
+      
+      // Show error message to user
+      const errorMessage = {
+        ...assistantMessage,
+        content: "Sorry, I encountered an error while processing your request. Please try again.",
+        isStreaming: false
+      };
+      
+      const errorMessages = [...updatedMessages, errorMessage];
+      setMessages(errorMessages);
+      onUpdateMessages(activeChat, errorMessages);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+      setNewMessage("");
+      setAttachedFiles([]);
+    }
   };
 
   // File handling functions

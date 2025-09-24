@@ -131,11 +131,7 @@ Respond with only: NEEDS_CONTEXT or GENERAL_KNOWLEDGE"""
     
     def _generate_direct_answer(self, query: str) -> str:
         """Generate a direct answer without document context"""
-        direct_prompt = f"""You are a helpful AI assistant. Answer this question using your general knowledge. Be concise, accurate, and helpful.
-
-Question: {query}
-
-Provide a clear, informative answer based on your general knowledge. If you're not certain about something, mention that uncertainty."""
+        direct_prompt = f"""{query}"""
         
         try:
             response = self.ollama_client.chat(
