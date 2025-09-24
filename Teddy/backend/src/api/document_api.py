@@ -3,14 +3,15 @@ FastAPI integration for document processing and chunking
 Provides REST API endpoints for uploading and processing documents
 """
 
+import json
 import os
 import shutil
 import time
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import AsyncGenerator, List, Optional, Dict, Any
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from src.core.document_processor import DocumentProcessor, ChunkingConfig, ProcessedDocument
@@ -263,6 +264,9 @@ async def upload_and_process_document(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload and process document: {str(e)}")
+
+
+
 
 @doc_app.get("/chunks/{filename}", response_model=List[DocumentChunk])
 async def get_document_chunks(

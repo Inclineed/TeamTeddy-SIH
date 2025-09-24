@@ -1,87 +1,101 @@
 :root {
-    /* Custom Color Palette */
-    --white-smoke: #F1F2EE;
-    --outer-space: #374650;
-    --mindaro: #DCF763;
+    /* Clean Modern Dark Theme */
+    --background-primary: #0A0B14;
+    --background-secondary: #1C1E2A;
+    --surface: #252834;
+    --surface-hover: #2A2D3A;
+    --text-primary: #F0F2F5;
+    --text-secondary: #9CA3AF;
+    --accent-primary: #6366F1;
+    --accent-secondary: #818CF8;
+    --accent-gradient: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
+    --border-color: rgba(240, 242, 245, 0.08);
 }
 
 html {
-    background-color: var(--outer-space);
+    background-color: var(--background-primary);
     text-align: center;
-    color: var(--white-smoke);
+    color: var(--text-primary);
     overflow: hidden;
 }
 
 body {
     margin: 0;
-    color: var(--white-smoke);
+    color: var(--text-primary);
     font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
     "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
     overflow: hidden;
 }
 
-/* Custom Scrollbar Styles */
-.chat-sessions-scrollbar {
+/* Universal Custom Scrollbar System */
+.custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: var(--mindaro) rgba(241, 242, 238, 0.1);
+    scrollbar-color: var(--accent-primary) rgba(37, 40, 52, 0.2);
 }
 
-.chat-sessions-scrollbar::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-sessions-scrollbar::-webkit-scrollbar-track {
-    background: rgba(241, 242, 238, 0.05);
-    border-radius: 10px;
-    margin: 5px;
-}
-
-.chat-sessions-scrollbar::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, var(--mindaro) 0%, #E8F76F 50%, var(--mindaro) 100%);
-    border-radius: 10px;
-    border: 1px solid rgba(55, 70, 80, 0.2);
-    box-shadow: 0 2px 4px rgba(220, 247, 99, 0.3);
-    transition: all 0.2s ease;
-}
-
-.chat-sessions-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #E8F76F 0%, var(--mindaro) 50%, #E8F76F 100%);
-    box-shadow: 0 3px 6px rgba(220, 247, 99, 0.4);
-    transform: scale(1.1);
-}
-
-.chat-sessions-scrollbar::-webkit-scrollbar-thumb:active {
-    background: var(--mindaro);
-    box-shadow: inset 0 2px 4px rgba(55, 70, 80, 0.3);
-}
-
-/* Main Chat Window Scrollbar */
-.chat-window-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(74, 144, 226, 0.6) rgba(241, 242, 238, 0.1);
-}
-
-.chat-window-scrollbar::-webkit-scrollbar {
+.custom-scrollbar::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
-.chat-window-scrollbar::-webkit-scrollbar-track {
-    background: rgba(241, 242, 238, 0.05);
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(37, 40, 52, 0.2);
     border-radius: 8px;
-    margin: 3px;
+    margin: 2px;
 }
 
-.chat-window-scrollbar::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--accent-gradient);
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(74, 144, 226, 0.2);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+    transition: all 0.2s ease;
+    border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
+    box-shadow: 0 3px 8px rgba(99, 102, 241, 0.4);
+    transform: scale(1.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+    background: var(--accent-primary);
+    box-shadow: inset 0 2px 4px rgba(10, 11, 20, 0.3);
+    transform: scale(0.95);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+    background: rgba(37, 40, 52, 0.2);
+}
+
+/* Compact Scrollbar for smaller elements */
+.custom-scrollbar-compact {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-primary) rgba(37, 40, 52, 0.1);
+}
+
+.custom-scrollbar-compact::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.custom-scrollbar-compact::-webkit-scrollbar-track {
+    background: rgba(37, 40, 52, 0.1);
+    border-radius: 6px;
+    margin: 1px;
+}
+
+.custom-scrollbar-compact::-webkit-scrollbar-thumb {
+    background: var(--accent-gradient);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.2);
     transition: all 0.2s ease;
 }
 
-.chat-window-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #357ABD 0%, #4A90E2 100%);
-    box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+.custom-scrollbar-compact::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
 }
 
 @font-face {
