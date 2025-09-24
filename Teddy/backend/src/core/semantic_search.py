@@ -60,6 +60,7 @@ class OllamaEmbeddingGenerator:
         """Check if the BGE-M3 model is available in Ollama"""
         try:
             models_response = self.client.list()
+            
             # Handle both dictionary and object responses
             if hasattr(models_response, 'models'):
                 models = models_response.models
@@ -77,7 +78,7 @@ class OllamaEmbeddingGenerator:
             # Check for exact match or with :latest suffix
             model_found = False
             for model_name in model_names:
-                if (self.config.model_name == model_name or 
+                if (self.config.model_name == model_name or
                     f"{self.config.model_name}:latest" == model_name or
                     model_name.startswith(f"{self.config.model_name}:")):
                     model_found = True
@@ -86,6 +87,7 @@ class OllamaEmbeddingGenerator:
             if not model_found:
                 logger.warning(f"Model {self.config.model_name} not found in Ollama. Available models: {model_names}")
                 logger.info(f"Please pull the model using: ollama pull {self.config.model_name}")
+                
                 # Try to pull the model automatically
                 try:
                     logger.info(f"Attempting to pull {self.config.model_name} model...")
@@ -152,7 +154,7 @@ class OllamaEmbeddingGenerator:
             for text in batch:
                 embedding = self.generate_embedding(text)
                 batch_embeddings.append(embedding)
-                
+            
             embeddings.extend(batch_embeddings)
             
             # Small delay between batches to avoid overwhelming Ollama
@@ -166,7 +168,7 @@ class SemanticSearchEngine:
     Main semantic search engine using ChromaDB and Ollama embeddings
     """
     
-    def __init__(self, 
+    def __init__(self,
                  collection_name: str = "document_chunks",
                  persist_directory: str = "./chroma_db",
                  embedding_config: EmbeddingConfig = None):
@@ -252,8 +254,8 @@ class SemanticSearchEngine:
             logger.error(f"Failed to add documents to ChromaDB: {e}")
             raise
     
-    def search(self, 
-               query: str, 
+    def search(self,
+               query: str,
                n_results: int = 5,
                filter_metadata: Dict[str, Any] = None) -> List[SearchResult]:
         """
@@ -301,6 +303,7 @@ class SemanticSearchEngine:
                         source_file=metadata.get('source_file', 'unknown'),
                         chunk_index=int(metadata.get('chunk_index', 0))
                     )
+                    
                     results.append(result)
             
             logger.info(f"Found {len(results)} results")
@@ -350,15 +353,18 @@ class SemanticSearchEngine:
         try:
             # Get all IDs
             all_data = self.collection.get()
+            
             if all_data['ids']:
                 self.collection.delete(ids=all_data['ids'])
                 logger.info(f"Cleared {len(all_data['ids'])} documents from collection")
             else:
                 logger.info("Collection is already empty")
+                
         except Exception as e:
             logger.error(f"Failed to clear collection: {e}")
             raise
 
+# Demo and testing functions
 def demonstrate_semantic_search():
     """
     Demonstrate the complete semantic search pipeline
@@ -378,7 +384,7 @@ def demonstrate_semantic_search():
     search_engine.clear_collection()
     
     # Find test documents
-    data_dir = Path(__file__).parent / "data"
+    data_dir = Path(__file__).parent.parent.parent / "data"
     test_files = list(data_dir.glob("*.pdf"))
     
     if not test_files:
@@ -391,7 +397,6 @@ def demonstrate_semantic_search():
     
     for test_file in test_files:
         print(f"\n📄 Processing: {test_file.name}")
-        
         try:
             # Process document
             processed_doc = processor.process_file(str(test_file))
@@ -409,8 +414,8 @@ def demonstrate_semantic_search():
     # Display collection stats
     stats = search_engine.get_collection_stats()
     print(f"\n📊 Collection Statistics:")
-    print(f"  Total chunks: {stats['total_chunks']}")
-    print(f"  Source files: {stats.get('sample_source_files', [])}")
+    print(f"   Total chunks: {stats['total_chunks']}")
+    print(f"   Source files: {stats.get('sample_source_files', [])}")
     
     # Demonstrate searches
     search_queries = [
@@ -422,7 +427,6 @@ def demonstrate_semantic_search():
     ]
     
     print(f"\n🔍 Performing semantic searches...")
-    
     for query in search_queries:
         print(f"\n🎯 Query: '{query}'")
         print("-" * 40)
@@ -444,62 +448,5 @@ def demonstrate_semantic_search():
     print(f"\n✨ Semantic search demonstration completed!")
     print(f"📈 You can now query {total_chunks} chunks from your documents!")
 
-def test_embedding_generation():
-    """
-    Test embedding generation with Ollama BGE-M3
-    """
-    print("🧪 Testing Ollama BGE-M3 Embedding Generation")
-    print("=" * 50)
-    
-    try:
-        # Initialize embedding generator
-        embedding_gen = OllamaEmbeddingGenerator()
-        
-        # Test texts
-        test_texts = [
-            "This is a test sentence for embedding generation.",
-            "Semantic search helps find relevant documents.",
-            "ChromaDB is a vector database for embeddings.",
-            "Ollama provides local language model inference."
-        ]
-        
-        print(f"📝 Testing with {len(test_texts)} sample texts...")
-        
-        # Generate single embedding
-        print("\n🔹 Testing single embedding generation...")
-        single_embedding = embedding_gen.generate_embedding(test_texts[0])
-        print(f"   ✅ Generated embedding with {len(single_embedding)} dimensions")
-        print(f"   📊 Sample values: {single_embedding[:5]}...")
-        
-        # Generate batch embeddings
-        print(f"\n🔹 Testing batch embedding generation...")
-        batch_embeddings = embedding_gen.generate_embeddings_batch(test_texts)
-        print(f"   ✅ Generated {len(batch_embeddings)} embeddings")
-        
-        for i, embedding in enumerate(batch_embeddings):
-            print(f"   📊 Text {i+1}: {len(embedding)} dimensions")
-        
-        print(f"\n✅ Embedding generation test completed!")
-        
-    except Exception as e:
-        print(f"❌ Embedding test failed: {e}")
-        print("Make sure Ollama is running and bge-m3 model is available")
-        print("Run: ollama pull bge-m3")
-
-def main():
-    """
-    Main function to run demonstrations
-    """
-    print("🚀 Semantic Search System Demo")
-    print("=" * 40)
-    
-    # Test embedding generation first
-    test_embedding_generation()
-    
-    print("\n" + "=" * 60)
-    
-    # Run full semantic search demo
-    demonstrate_semantic_search()
-
 if __name__ == "__main__":
-    main()
+    demonstrate_semantic_search()

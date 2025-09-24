@@ -81,7 +81,7 @@ async def ask_question(request: QuestionRequest):
         # Update config if provided
         if request.temperature:
             rag.config.temperature = request.temperature
-        
+            
         logger.info(f"Processing question: '{request.question}'")
         
         result = await rag.answer_question(
@@ -110,6 +110,7 @@ async def ask_question_get(
             search_results=n_results,
             temperature=temperature
         )
+        
         return await ask_question(request)
         
     except Exception as e:
@@ -128,7 +129,7 @@ async def ask_question_stream(request: QuestionRequest):
         # Update config if provided
         if request.temperature:
             rag.config.temperature = request.temperature
-        
+            
         logger.info(f"Processing streaming question: '{request.question}'")
         
         async def generate_stream() -> AsyncGenerator[str, None]:
@@ -181,6 +182,7 @@ async def ask_question_stream_get(
             search_results=n_results,
             temperature=temperature
         )
+        
         return await ask_question_stream(request)
         
     except Exception as e:
@@ -194,7 +196,6 @@ async def ask_multiple_questions(request: MultipleQuestionsRequest):
     """
     try:
         rag = get_rag_system()
-        
         logger.info(f"Processing {len(request.questions)} questions")
         
         results = await rag.answer_multiple_questions(request.questions)
@@ -216,6 +217,7 @@ async def get_system_status():
         rag = get_rag_system()
         status = rag.get_system_status()
         return JSONResponse(content=status)
+        
     except Exception as e:
         logger.error(f"Status check failed: {e}")
         return JSONResponse(
@@ -236,7 +238,9 @@ async def get_configuration():
             "max_retries": rag.config.max_retries,
             "retry_delay": rag.config.retry_delay
         }
+        
         return JSONResponse(content=config)
+        
     except Exception as e:
         logger.error(f"Config retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -250,14 +254,16 @@ async def update_configuration(
     """Update RAG system configuration"""
     try:
         rag = get_rag_system()
-        
         updates = {}
+        
         if search_results is not None:
             rag.config.search_results = search_results
             updates["search_results"] = search_results
+        
         if temperature is not None:
             rag.config.temperature = temperature
             updates["temperature"] = temperature
+        
         if max_context_length is not None:
             rag.config.max_context_length = max_context_length
             updates["max_context_length"] = max_context_length

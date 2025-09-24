@@ -7,7 +7,9 @@ import logging
 import time
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+
 import ollama
+
 from .semantic_search import SemanticSearchEngine
 
 # Configure logging
@@ -30,7 +32,7 @@ class RAGConfig:
     def __post_init__(self):
         if self.direct_answer_categories is None:
             self.direct_answer_categories = [
-                "general_knowledge", "mathematics", "science", "weather", 
+                "general_knowledge", "mathematics", "science", "weather",
                 "current_events", "simple_facts", "calculations"
             ]
 
@@ -78,14 +80,14 @@ Classify this question into one of these categories:
 
 Consider these examples:
 - "What is the weather today?" → GENERAL_KNOWLEDGE
-- "What is 2+2?" → GENERAL_KNOWLEDGE  
+- "What is 2+2?" → GENERAL_KNOWLEDGE
 - "What does this document say about virtue?" → NEEDS_CONTEXT
 - "According to the text, how should one live?" → NEEDS_CONTEXT
 - "What is machine learning?" → GENERAL_KNOWLEDGE
 - "How does the author define wisdom?" → NEEDS_CONTEXT
 
 Respond with only: NEEDS_CONTEXT or GENERAL_KNOWLEDGE"""
-
+        
         try:
             response = self.ollama_client.chat(
                 model=self.config.llm_model,
@@ -134,7 +136,7 @@ Respond with only: NEEDS_CONTEXT or GENERAL_KNOWLEDGE"""
 Question: {query}
 
 Provide a clear, informative answer based on your general knowledge. If you're not certain about something, mention that uncertainty."""
-
+        
         try:
             response = self.ollama_client.chat(
                 model=self.config.llm_model,
@@ -156,6 +158,7 @@ Provide a clear, informative answer based on your general knowledge. If you're n
         """Check if Phi3:mini model is available in Ollama"""
         try:
             models_response = self.ollama_client.list()
+            
             # Handle both dictionary and object responses
             if hasattr(models_response, 'models'):
                 models = models_response.models
@@ -170,10 +173,10 @@ Provide a clear, informative answer based on your general knowledge. If you're n
                 else:
                     model_names.append(model.get('name', model.get('model', '')))
             
-            # Check for exact match or with :mini suffix
+            # Check for exact match or with suffix
             model_found = False
             for model_name in model_names:
-                if (self.config.llm_model == model_name or 
+                if (self.config.llm_model == model_name or
                     f"{self.config.llm_model}:latest" == model_name or
                     model_name.startswith(f"{self.config.llm_model}:")):
                     model_found = True
@@ -182,6 +185,7 @@ Provide a clear, informative answer based on your general knowledge. If you're n
             if not model_found:
                 logger.warning(f"Model {self.config.llm_model} not found. Available models: {model_names}")
                 logger.info(f"Please pull the model using: ollama pull {self.config.llm_model}")
+                
                 # Try to pull the model automatically
                 try:
                     logger.info(f"Attempting to pull {self.config.llm_model} model...")
@@ -198,9 +202,8 @@ Provide a clear, informative answer based on your general knowledge. If you're n
             logger.info("Make sure Ollama is running and the model is available")
             raise
     
-    def _create_prompt(self, query: str, context_chunks: List[Dict[str, Any]]) -> str:
+    def _create_prompt(self, query: str, context_chunks: List) -> str:
         """Create a prompt for the LLM with context from retrieved documents"""
-        
         # Format context from search results
         context_text = ""
         for i, chunk in enumerate(context_chunks, 1):
@@ -218,7 +221,7 @@ Provide a clear, informative answer based on your general knowledge. If you're n
             context_text = context_text[:self.config.max_context_length] + "...\n[Context truncated]"
         
         # Create the prompt
-        prompt = f"""You are an intelligent assistant that answers questions based on provided context from documents. 
+        prompt = f"""You are an intelligent assistant that answers questions based on provided context from documents.
 
 CONTEXT FROM DOCUMENTS:
 {context_text}
@@ -243,12 +246,10 @@ ANSWER:"""
             try:
                 response = self.ollama_client.chat(
                     model=self.config.llm_model,
-                    messages=[
-                        {
-                            'role': 'user',
-                            'content': prompt
-                        }
-                    ],
+                    messages=[{
+                        'role': 'user',
+                        'content': prompt
+                    }],
                     options={
                         'temperature': self.config.temperature,
                         'top_p': 0.9,
@@ -275,12 +276,10 @@ ANSWER:"""
             try:
                 response = self.ollama_client.chat(
                     model=self.config.llm_model,
-                    messages=[
-                        {
-                            'role': 'user',
-                            'content': prompt
-                        }
-                    ],
+                    messages=[{
+                        'role': 'user',
+                        'content': prompt
+                    }],
                     options={
                         'temperature': self.config.temperature,
                         'top_p': 0.9,
@@ -295,9 +294,9 @@ ANSWER:"""
                         content = chunk['message']['content']
                         if content:  # Only yield non-empty content
                             yield content
-                            
+                
                 return  # Exit successfully after streaming
-                    
+                
             except Exception as e:
                 logger.warning(f"Attempt {attempt + 1} failed for streaming answer generation: {e}")
                 if attempt < self.config.max_retries - 1:
@@ -342,7 +341,7 @@ ANSWER:"""
             # Step 3: Proceed with RAG pipeline for context-dependent queries
             logger.info("Using RAG pipeline with document context")
             
-            # Use the old search engine interface for backward compatibility
+            # Perform semantic search
             search_results = self.search_engine.search(
                 query=question,
                 n_results=max_results,
@@ -376,7 +375,7 @@ ANSWER:"""
                 
                 return {
                     "answer": answer,
-                    "sources": [{"content": result.content, "score": result.score, "metadata": result.metadata} 
+                    "sources": [{"content": result.content, "score": result.score, "metadata": result.metadata}
                                for result in search_results[:3]],  # Include some context for reference
                     "context_used": False,
                     "response_time": time.time() - start_time,
@@ -388,50 +387,22 @@ ANSWER:"""
             # Step 5: Generate answer with document context
             logger.info(f"Using document context (max relevance: {max_score:.3f})")
             
-            # Prepare context from retrieved chunks
-            context_pieces = []
-            sources = []
+            # Create prompt with context
+            prompt = self._create_prompt(question, search_results)
             
+            # Generate answer
+            answer = self._generate_answer(prompt)
+            
+            # Prepare sources
+            sources = []
             for result in search_results:
-                context_pieces.append(f"Context: {result.content}")
                 sources.append({
                     "content": result.content,
                     "score": result.score,
                     "metadata": result.metadata
                 })
             
-            context = "\n\n".join(context_pieces)
-            
-            # Create the prompt with context
-            prompt = f"""You are a helpful AI assistant. Answer the following question based on the provided context. Be accurate, helpful, and cite the relevant information from the context when appropriate.
-
-Context:
-{context}
-
-Question: {question}
-
-Instructions:
-- Use the provided context to answer the question
-- If the context doesn't contain enough information, say so clearly
-- Be concise but comprehensive
-- Cite relevant parts of the context when making claims
-
-Answer:"""
-
-            # Generate response
-            response = self.ollama_client.chat(
-                model=self.config.llm_model,
-                messages=[{"role": "user", "content": prompt}],
-                options={
-                    "temperature": self.config.temperature,
-                    "top_p": 0.9,
-                    "top_k": 40
-                }
-            )
-            
-            answer = response['message']['content'].strip()
             response_time = time.time() - start_time
-            
             logger.info(f"Generated answer in {response_time:.2f} seconds")
             
             return {
@@ -474,13 +445,6 @@ Answer:"""
     async def answer_question_stream(self, question: str, max_results: int = 5):
         """
         Stream answer generation for a question using RAG with intelligent query classification
-        
-        Args:
-            question: The question to answer
-            max_results: Maximum number of chunks to retrieve for context
-            
-        Yields:
-            Dictionary chunks containing streamed answer parts and metadata
         """
         start_time = time.time()
         
@@ -523,7 +487,7 @@ Answer:"""
             # Step 3: Proceed with RAG pipeline for context-dependent queries
             logger.info("Using RAG pipeline with document context")
             
-            # Use the old search engine interface for backward compatibility
+            # Perform semantic search
             search_results = self.search_engine.search(
                 query=question,
                 n_results=max_results,
@@ -554,69 +518,15 @@ Answer:"""
                 }
                 return
             
-            # Step 4: Evaluate context relevance
+            # Step 4: Generate answer with document context
             max_score = max(result.score for result in search_results)
-            
-            if max_score < self.config.context_threshold:
-                # Context not relevant enough, provide direct answer with note
-                logger.info(f"Context relevance too low (max_score: {max_score:.3f} < threshold: {self.config.context_threshold})")
-                prompt = f"""You are a helpful AI assistant. Answer the following question directly, and mention that this is based on general knowledge as the document context was not sufficiently relevant:
-
-Question: {question}
-
-Answer:"""
-                
-                yield {"type": "method", "method": "low_relevance_direct_answer"}
-                
-                for chunk in self._generate_answer_stream(prompt):
-                    yield {"type": "content", "content": chunk}
-                
-                sources = [{"content": result.content, "score": result.score, "metadata": result.metadata} 
-                          for result in search_results[:3]]
-                
-                yield {
-                    "type": "final_metadata",
-                    "sources": sources,
-                    "context_used": False,
-                    "response_time": time.time() - start_time,
-                    "method": "low_relevance_direct_answer",
-                    "max_relevance_score": max_score
-                }
-                return
-            
-            # Step 5: Generate answer with document context
             logger.info(f"Using document context (max relevance: {max_score:.3f})")
             
-            # Prepare context from retrieved chunks
-            context_pieces = []
-            sources = []
+            # Prepare context and sources
+            prompt = self._create_prompt(question, search_results)
+            sources = [{"content": result.content, "score": result.score, "metadata": result.metadata}
+                      for result in search_results]
             
-            for result in search_results:
-                context_pieces.append(f"Context: {result.content}")
-                sources.append({
-                    "content": result.content,
-                    "score": result.score,
-                    "metadata": result.metadata
-                })
-            
-            context = "\n\n".join(context_pieces)
-            
-            # Create the prompt with context
-            prompt = f"""You are a helpful AI assistant. Answer the following question based on the provided context. Be accurate, helpful, and cite the relevant information from the context when appropriate.
-
-Context:
-{context}
-
-Question: {question}
-
-Instructions:
-- Use the provided context to answer the question
-- If the context doesn't contain enough information, say so clearly
-- Be concise but comprehensive
-- Cite relevant parts of the context when making claims
-
-Answer:"""
-
             # Yield sources information
             yield {"type": "sources", "sources": sources[:3]}  # Limit to first 3 sources
             yield {"type": "method", "method": "rag_with_context"}
@@ -637,6 +547,7 @@ Answer:"""
             
         except Exception as e:
             logger.error(f"Error in answer_question_stream: {e}")
+            
             # Fallback to direct answer on error
             try:
                 prompt = f"""You are a helpful AI assistant. I encountered an error while processing the question, but answer based on general knowledge:
@@ -659,6 +570,7 @@ Answer:"""
                     "method": "error_fallback",
                     "error": str(e)
                 }
+                
             except Exception as fallback_error:
                 yield {
                     "type": "error",

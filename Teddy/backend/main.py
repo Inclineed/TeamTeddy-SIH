@@ -1,10 +1,9 @@
 """
 RAG Document Search API - Main Application
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from pathlib import Path
 
 # Import organized API routers
 from src.api.document_api import doc_app
@@ -19,7 +18,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware (relaxed for offline chatbot)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,10 +40,20 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "documents": "/api/v1/documents",
-            "search": "/api/v1/search", 
+            "search": "/api/v1/search",
             "rag": "/api/v1/rag"
         },
-        "docs": "/docs"
+        "docs": "/docs",
+        "status": "running"
+    }
+
+@app.get("/health")
+async def health_check():
+    """Global health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "rag-document-search-api",
+        "version": "1.0.0"
     }
 
 if __name__ == "__main__":

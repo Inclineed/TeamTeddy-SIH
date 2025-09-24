@@ -16,11 +16,13 @@ from langchain_community.document_loaders import (
     TextLoader,
     UnstructuredPDFLoader
 )
+
 from langchain.text_splitter import (
     RecursiveCharacterTextSplitter,
     CharacterTextSplitter,
     TokenTextSplitter
 )
+
 from langchain.schema import Document
 
 # Configure logging
@@ -66,7 +68,7 @@ class DocumentProcessor:
             '.doc': self._load_doc,
             '.txt': self._load_txt
         }
-        
+    
     def _get_file_type(self, file_path: str) -> str:
         """Determine file type from extension"""
         return Path(file_path).suffix.lower()
@@ -138,7 +140,6 @@ class DocumentProcessor:
             raise FileNotFoundError(f"File not found: {file_path}")
         
         file_type = self._get_file_type(file_path)
-        
         if file_type not in self.supported_extensions:
             raise ValueError(f"Unsupported file type: {file_type}")
         
@@ -172,6 +173,7 @@ class DocumentProcessor:
                 length_function=self.config.length_function,
                 separators=["\n\n", "\n", " ", ""]
             )
+        
         elif splitter_type == "character":
             return CharacterTextSplitter(
                 chunk_size=self.config.chunk_size,
@@ -179,11 +181,13 @@ class DocumentProcessor:
                 separator=self.config.separator,
                 length_function=self.config.length_function
             )
+        
         elif splitter_type == "token":
             return TokenTextSplitter(
                 chunk_size=self.config.chunk_size,
                 chunk_overlap=self.config.chunk_overlap
             )
+        
         else:
             raise ValueError(f"Unknown splitter type: {splitter_type}")
     
@@ -276,6 +280,35 @@ class DocumentProcessor:
         logger.info(f"Processed {len(processed_docs)} files from directory: {directory_path}")
         return processed_docs
     
+    def _clean_for_serialization(self, obj: Any) -> Any:
+        """
+        Recursively clean an object to make it JSON serializable
+        """
+        if callable(obj):
+            return str(obj)
+        elif isinstance(obj, type):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: self._clean_for_serialization(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._clean_for_serialization(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            # For objects with __dict__, convert to dict but filter out methods
+            try:
+                obj_dict = vars(obj)
+                return {k: self._clean_for_serialization(v) for k, v in obj_dict.items() 
+                       if not k.startswith('_') and not callable(v)}
+            except:
+                return str(obj)
+        else:
+            # For basic types (int, str, float, bool, None), return as-is
+            try:
+                import json
+                json.dumps(obj)  # Test if it's serializable
+                return obj
+            except:
+                return str(obj)
+
     def get_chunk_preview(self, chunks: List[Document], num_chunks: int = 3) -> List[Dict[str, Any]]:
         """
         Get a preview of the first few chunks for inspection
@@ -289,11 +322,14 @@ class DocumentProcessor:
         """
         previews = []
         for i, chunk in enumerate(chunks[:num_chunks]):
+            # Use comprehensive cleaning for metadata
+            clean_metadata = self._clean_for_serialization(chunk.metadata)
+            
             preview = {
                 'chunk_index': i,
                 'content_preview': chunk.page_content[:200] + "..." if len(chunk.page_content) > 200 else chunk.page_content,
                 'content_length': len(chunk.page_content),
-                'metadata': chunk.metadata
+                'metadata': clean_metadata
             }
             previews.append(preview)
         
@@ -332,7 +368,6 @@ class DocumentProcessor:
         logger.info(f"Exported chunks to: {output_path}")
         return str(output_path)
 
-
 def main():
     """
     Example usage of the DocumentProcessor
@@ -353,7 +388,6 @@ def main():
     if test_pdf.exists():
         try:
             processed_doc = processor.process_file(str(test_pdf))
-            
             print(f"Successfully processed: {processed_doc.filename}")
             print(f"File type: {processed_doc.file_type}")
             print(f"Total chunks: {processed_doc.total_chunks}")
@@ -379,13 +413,10 @@ def main():
     try:
         processed_docs = processor.process_directory(str(data_dir))
         print(f"\nProcessed {len(processed_docs)} documents from directory")
-        
         for doc in processed_docs:
             print(f"- {doc.filename}: {doc.total_chunks} chunks")
-            
     except Exception as e:
         print(f"Error processing directory: {e}")
-
 
 if __name__ == "__main__":
     main()

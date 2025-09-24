@@ -4,8 +4,10 @@ Provides REST API endpoints for semantic search operations
 """
 
 import os
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel
 
@@ -67,7 +69,6 @@ async def semantic_search(search_query: SearchQuery):
     Perform semantic search on indexed documents
     """
     try:
-        import time
         start_time = time.time()
         
         engine = get_search_engine()
@@ -133,7 +134,7 @@ async def index_document(
     """
     try:
         # Check if file exists
-        data_dir = Path(__file__).parent / "data"
+        data_dir = Path(__file__).parent.parent.parent / "data"
         file_path = data_dir / request.filename
         
         if not file_path.exists():
@@ -171,6 +172,7 @@ async def index_document_background(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap
         )
+        
         processor = DocumentProcessor(config)
         
         # Process document
@@ -191,7 +193,7 @@ async def index_all_documents(background_tasks: BackgroundTasks):
     Index all documents in the data directory
     """
     try:
-        data_dir = Path(__file__).parent / "data"
+        data_dir = Path(__file__).parent.parent.parent / "data"
         supported_extensions = ['.pdf', '.docx', '.doc', '.txt']
         
         files_to_index = []
@@ -341,51 +343,3 @@ async def find_similar_chunks(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to find similar chunks: {str(e)}")
-
-# Example usage and testing
-async def test_semantic_search_api():
-    """
-    Test the semantic search API functionality
-    """
-    print("🧪 Testing Semantic Search API")
-    print("=" * 40)
-    
-    try:
-        # Initialize search engine
-        engine = get_search_engine()
-        
-        # Get stats
-        stats = engine.get_collection_stats()
-        print(f"📊 Collection stats: {stats}")
-        
-        if stats.get("total_chunks", 0) == 0:
-            print("📝 No documents indexed. Please index some documents first.")
-            return
-        
-        # Test search
-        test_queries = [
-            "meditation and mindfulness",
-            "wisdom and virtue",
-            "death and mortality"
-        ]
-        
-        for query in test_queries:
-            print(f"\n🔍 Testing query: '{query}'")
-            
-            search_query = SearchQuery(query=query, n_results=3)
-            response = await semantic_search(search_query)
-            
-            print(f"   Found {response.total_results} results")
-            print(f"   Search time: {response.search_time_ms:.2f}ms")
-            
-            for i, result in enumerate(response.results, 1):
-                print(f"   {i}. Score: {result['score']:.3f} | {result['source_file']}")
-        
-        print(f"\n✅ API testing completed!")
-        
-    except Exception as e:
-        print(f"❌ API test failed: {e}")
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(test_semantic_search_api())

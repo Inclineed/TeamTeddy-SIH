@@ -8,13 +8,14 @@ import shutil
 import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.core.document_processor import DocumentProcessor, ChunkingConfig, ProcessedDocument
 
-# Initialize APIRouter (this can be imported into main server.py)
+# Initialize APIRouter
 doc_app = APIRouter()
 
 # Configuration models
@@ -51,8 +52,8 @@ class DocumentListResponse(BaseModel):
 # Global processor instance
 processor = DocumentProcessor()
 
-# Use the same directory that search API expects (correct location)
-UPLOAD_DIR = Path(__file__).parent / "data"
+# Upload directory - ensure it matches search_api expectations
+UPLOAD_DIR = Path(__file__).parent.parent.parent / "data"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @doc_app.post("/upload", response_model=Dict[str, str])
@@ -111,7 +112,7 @@ async def _upload_single_file(file: UploadFile) -> Dict[str, str]:
     
     if file_extension not in supported_extensions:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Unsupported file type: {file_extension}. Supported: {', '.join(supported_extensions)}"
         )
     
@@ -190,7 +191,7 @@ async def process_document(
             metadata=clean_metadata,
             processing_status="success"
         )
-        
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
 
@@ -219,6 +220,7 @@ async def upload_and_process_document(
         
         global processor
         processor = DocumentProcessor(config)
+        
         file_path = UPLOAD_DIR / filename
         processed_doc = processor.process_file(str(file_path), splitter_type)
         
@@ -228,10 +230,8 @@ async def upload_and_process_document(
             try:
                 # Direct indexing without HTTP call to avoid circular dependency
                 from src.core.semantic_search import SemanticSearchEngine
-                
                 search_engine = SemanticSearchEngine()
-                indexed_chunks = search_engine.add_documents(processed_doc.chunks)
-                
+                indexed_chunks = search_engine.add_documents(processed_doc)
                 index_result = {
                     "indexed_chunks": indexed_chunks,
                     "filename": filename,
@@ -243,9 +243,8 @@ async def upload_and_process_document(
         # Get chunk previews
         previews = processor.get_chunk_preview(processed_doc.chunks, 3)
         
-        # Clean metadata to avoid serialization issues
-        clean_metadata = {k: v for k, v in processed_doc.metadata.items() 
-                         if not callable(v) and not isinstance(v, type)}
+        # Clean metadata using the processor's comprehensive cleaning method
+        clean_metadata = processor._clean_for_serialization(processed_doc.metadata)
         
         return {
             "upload": upload_result,
@@ -264,53 +263,6 @@ async def upload_and_process_document(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload and process document: {str(e)}")
-
-@doc_app.post("/upload-and-process-multiple")
-async def upload_and_process_multiple_documents(
-    files: List[UploadFile] = File(...),
-    chunk_size: int = Query(1000, description="Size of each chunk"),
-    chunk_overlap: int = Query(200, description="Overlap between chunks"),
-    splitter_type: str = Query("recursive", description="Type of text splitter"),
-    auto_index: bool = Query(True, description="Automatically index for search after processing"),
-    background_tasks: BackgroundTasks = None
-):
-    """
-    Upload and process multiple documents in one step
-    """
-    if not files:
-        raise HTTPException(status_code=400, detail="No files provided")
-    
-    results = []
-    errors = []
-    
-    for file in files:
-        try:
-            # Process each file individually
-            result = await upload_and_process_document(
-                file=file,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                splitter_type=splitter_type,
-                auto_index=auto_index
-            )
-            results.append({
-                "filename": file.filename,
-                "result": result
-            })
-        except Exception as e:
-            errors.append({
-                "filename": file.filename or "unknown",
-                "error": str(e)
-            })
-    
-    return {
-        "total_files": len(files),
-        "successful_processes": len(results),
-        "failed_processes": len(errors),
-        "results": results,
-        "errors": errors,
-        "message": f"Processed {len(results)}/{len(files)} files successfully"
-    }
 
 @doc_app.get("/chunks/{filename}", response_model=List[DocumentChunk])
 async def get_document_chunks(
@@ -377,6 +329,7 @@ async def list_documents():
                         metadata=clean_metadata,
                         processing_status="processed"
                     ))
+                    
                 except Exception as e:
                     # If processing fails, still show the file
                     documents.append(ProcessedDocumentResponse(
@@ -420,61 +373,6 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "document-processing-api",
-        "supported_formats": [".pdf", ".docx", ".doc", ".txt"]
+        "supported_formats": [".pdf", ".docx", ".doc", ".txt"],
+        "upload_directory": str(UPLOAD_DIR)
     }
-
-@doc_app.get("/export/{filename}")
-async def export_chunks(filename: str):
-    """
-    Export document chunks to a text file
-    """
-    file_path = UPLOAD_DIR / filename
-    
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"File {filename} not found")
-    
-    try:
-        processed_doc = processor.process_file(str(file_path))
-        export_path = processor.export_chunks_to_text(processed_doc, str(UPLOAD_DIR))
-        
-        return {
-            "filename": filename,
-            "export_path": export_path,
-            "total_chunks": processed_doc.total_chunks,
-            "message": "Chunks exported successfully"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to export chunks: {str(e)}")
-
-# Example usage and testing function
-async def test_processing():
-    """
-    Test function to demonstrate the processing capabilities
-    """
-    data_dir = Path(__file__).parent / "data"
-    test_files = list(data_dir.glob("*.pdf"))
-    
-    if test_files:
-        test_file = test_files[0]
-        print(f"Testing with file: {test_file}")
-        
-        try:
-            processed_doc = processor.process_file(str(test_file))
-            print(f"Successfully processed: {processed_doc.filename}")
-            print(f"Total chunks: {processed_doc.total_chunks}")
-            
-            # Show first chunk
-            if processed_doc.chunks:
-                first_chunk = processed_doc.chunks[0]
-                print(f"First chunk preview: {first_chunk.page_content[:200]}...")
-                print(f"Chunk metadata: {first_chunk.metadata}")
-                
-        except Exception as e:
-            print(f"Error during testing: {e}")
-    else:
-        print("No test files found in data directory")
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(test_processing())
