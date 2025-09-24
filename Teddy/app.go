@@ -21,14 +21,14 @@ func (a *App) Startup(ctx context.Context) {
 		// Try different Python paths in order of preference
 		pythonPaths := []string{
 			"C:/Users/Acer/Desktop/TeamTeddy/.venv/Scripts/python.exe", // Absolute path to your venv
-			".venv/Scripts/python.exe",                                   // Relative path from Teddy directory
+			".venv/Scripts/python.exe",                                 // Relative path from Teddy directory
 			"python",
 			"python3",
 		}
 
 		var cmd *exec.Cmd
 		var pythonFound string
-		
+
 		for _, pythonPath := range pythonPaths {
 			if pythonPath == "C:/Users/Acer/Desktop/TeamTeddy/.venv/Scripts/python.exe" || pythonPath == ".venv/Scripts/python.exe" {
 				// Check if virtual environment exists
@@ -58,11 +58,11 @@ func (a *App) Startup(ctx context.Context) {
 		}
 
 		cmd.Dir = "." // Set working directory to current directory (Teddy folder)
-		
+
 		fmt.Printf("🚀 Starting FastAPI backend with: %s\n", pythonFound)
 		fmt.Printf("📁 Working directory: %s\n", cmd.Dir)
 		fmt.Printf("🌐 Server will be available at: http://localhost:8000\n")
-		
+
 		err := cmd.Run()
 		if err != nil {
 			fmt.Printf("❌ Error starting FastAPI server: %s\n", err)
