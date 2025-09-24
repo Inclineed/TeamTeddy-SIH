@@ -33,8 +33,8 @@
 }
 
 .input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-    color: #333333;
+    background: var(--mindaro);
+    color: var(--outer-space);
 }
 
 .input-box .input {
@@ -44,16 +44,19 @@
     height: 30px;
     line-height: 30px;
     padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
+    background-color: var(--white-smoke);
+    color: var(--outer-space);
     -webkit-font-smoothing: antialiased;
 }
 
 .input-box .input:hover {
     border: none;
-    background-color: rgba(255, 255, 255, 1);
+    background-color: var(--white-smoke);
+    opacity: 0.9;
 }
 
 .input-box .input:focus {
     border: none;
-    background-color: rgba(255, 255, 255, 1);
+    background-color: var(--white-smoke);
+    box-shadow: 0 0 0 2px var(--mindaro);
 }
