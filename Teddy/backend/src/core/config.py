@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     COLLECTION_NAME: str = "document_chunks"
     
     # LLM settings (updated for Ollama)
-    LLM_MODEL: str = "qwen3:4b"
+    LLM_MODEL: str = "gemma3:12b"
     EMBEDDING_MODEL: str = "bge-m3"
     TEMPERATURE: float = 0.7
     MAX_CONTEXT_LENGTH: int = 4000

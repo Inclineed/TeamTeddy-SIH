@@ -7,112 +7,112 @@ const ThemeContext = createContext();
 const themes = {
   light: {
     // Base colors
-    backgroundPrimary: '#ffffff',
-    backgroundSecondary: '#f8f9fa',
-    backgroundTertiary: '#e9ecef',
+    backgroundPrimary: '#fafbff',
+    backgroundSecondary: '#f1f4fd',
+    backgroundTertiary: '#e8eef9',
     
     // Surface colors
     surface: '#ffffff',
-    surfaceHover: '#f8f9fa',
-    surfaceActive: '#e9ecef',
+    surfaceHover: '#f8faff',
+    surfaceActive: '#eef4ff',
     
     // Text colors
-    textPrimary: '#1a1d29',
-    textSecondary: '#6c757d',
-    textTertiary: '#adb5bd',
+    textPrimary: '#1e293b',
+    textSecondary: '#475569',
+    textTertiary: '#94a3b8',
     
     // Accent colors
-    accentPrimary: '#6366f1',
-    accentSecondary: '#818cf8',
-    accentTertiary: '#a5b4fc',
-    accentGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    accentPrimary: '#2563eb',
+    accentSecondary: '#3b82f6',
+    accentTertiary: '#60a5fa',
+    accentGradient: '#2563eb', // Solid blue instead of gradient
+    
+    // Semantic colors
+    success: '#059669',
+    warning: '#d97706',
+    error: '#dc2626',
+    info: '#0284c7',
+    
+    // Border and shadow
+    borderColor: 'rgba(37, 99, 235, 0.08)',
+    borderColorLight: 'rgba(37, 99, 235, 0.04)',
+    shadowSm: '0 1px 2px rgba(37, 99, 235, 0.06)',
+    shadowMd: '0 4px 6px rgba(37, 99, 235, 0.08)',
+    shadowLg: '0 10px 15px rgba(37, 99, 235, 0.1)',
+    shadowXl: '0 20px 25px rgba(37, 99, 235, 0.12)',
+    
+    // Message specific
+    userMessageBg: '#eff6ff',
+    userMessageText: '#1e293b',
+    assistantMessageBg: '#2563eb', // Solid blue instead of gradient
+    assistantMessageText: '#ffffff',
+    
+    // Input colors
+    inputBg: '#ffffff',
+    inputBorder: 'rgba(37, 99, 235, 0.12)',
+    inputFocus: '#2563eb',
+    
+    // Overlay
+    overlayBg: 'rgba(250, 251, 255, 0.95)',
+    glassBg: 'rgba(250, 251, 255, 0.85)',
+    
+    // Code
+    codeBg: '#f1f5f9',
+    codeText: '#334155'
+  },
+  dark: {
+    // Base colors
+    backgroundPrimary: '#0c1220',
+    backgroundSecondary: '#1e2a3a',
+    backgroundTertiary: '#2d3b4f',
+    
+    // Surface colors
+    surface: '#1e2a3a',
+    surfaceHover: '#2d3b4f',
+    surfaceActive: '#3c4c63',
+    
+    // Text colors
+    textPrimary: '#f1f5f9',
+    textSecondary: '#cbd5e1',
+    textTertiary: '#94a3b8',
+    
+    // Accent colors
+    accentPrimary: '#3b82f6',
+    accentSecondary: '#60a5fa',
+    accentTertiary: '#93c5fd',
+    accentGradient: '#3b82f6', // Solid blue instead of gradient
     
     // Semantic colors
     success: '#10b981',
     warning: '#f59e0b',
     error: '#ef4444',
-    info: '#3b82f6',
+    info: '#06b6d4',
     
     // Border and shadow
-    borderColor: 'rgba(0, 0, 0, 0.08)',
-    borderColorLight: 'rgba(0, 0, 0, 0.04)',
-    shadowSm: '0 1px 2px rgba(0, 0, 0, 0.05)',
-    shadowMd: '0 4px 6px rgba(0, 0, 0, 0.05)',
-    shadowLg: '0 10px 15px rgba(0, 0, 0, 0.05)',
-    shadowXl: '0 20px 25px rgba(0, 0, 0, 0.05)',
+    borderColor: 'rgba(59, 130, 246, 0.15)',
+    borderColorLight: 'rgba(59, 130, 246, 0.08)',
+    shadowSm: '0 1px 2px rgba(0, 0, 0, 0.3)',
+    shadowMd: '0 4px 6px rgba(0, 0, 0, 0.35)',
+    shadowLg: '0 10px 15px rgba(0, 0, 0, 0.4)',
+    shadowXl: '0 20px 25px rgba(0, 0, 0, 0.5)',
     
     // Message specific
-    userMessageBg: '#f1f5f9',
-    userMessageText: '#1a1d29',
-    assistantMessageBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    userMessageBg: '#1e3a5f',
+    userMessageText: '#f1f5f9',
+    assistantMessageBg: '#3b82f6', // Solid blue instead of gradient
     assistantMessageText: '#ffffff',
     
     // Input colors
-    inputBg: '#f8f9fa',
-    inputBorder: 'rgba(0, 0, 0, 0.1)',
-    inputFocus: '#6366f1',
+    inputBg: '#1e2a3a',
+    inputBorder: 'rgba(59, 130, 246, 0.2)',
+    inputFocus: '#3b82f6',
     
     // Overlay
-    overlayBg: 'rgba(255, 255, 255, 0.95)',
-    glassBg: 'rgba(255, 255, 255, 0.7)',
+    overlayBg: 'rgba(12, 18, 32, 0.95)',
+    glassBg: 'rgba(12, 18, 32, 0.8)',
     
     // Code
-    codeBg: '#f6f8fa',
-    codeText: '#24292e'
-  },
-  dark: {
-    // Base colors
-    backgroundPrimary: '#0f1419',
-    backgroundSecondary: '#1a1f2e',
-    backgroundTertiary: '#242b3d',
-    
-    // Surface colors
-    surface: '#1a1f2e',
-    surfaceHover: '#242b3d',
-    surfaceActive: '#2e3750',
-    
-    // Text colors
-    textPrimary: '#e2e8f0',
-    textSecondary: '#94a3b8',
-    textTertiary: '#64748b',
-    
-    // Accent colors
-    accentPrimary: '#818cf8',
-    accentSecondary: '#a5b4fc',
-    accentTertiary: '#c7d2fe',
-    accentGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    
-    // Semantic colors
-    success: '#34d399',
-    warning: '#fbbf24',
-    error: '#f87171',
-    info: '#60a5fa',
-    
-    // Border and shadow
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderColorLight: 'rgba(255, 255, 255, 0.04)',
-    shadowSm: '0 1px 2px rgba(0, 0, 0, 0.2)',
-    shadowMd: '0 4px 6px rgba(0, 0, 0, 0.2)',
-    shadowLg: '0 10px 15px rgba(0, 0, 0, 0.3)',
-    shadowXl: '0 20px 25px rgba(0, 0, 0, 0.4)',
-    
-    // Message specific
-    userMessageBg: '#242b3d',
-    userMessageText: '#e2e8f0',
-    assistantMessageBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    assistantMessageText: '#ffffff',
-    
-    // Input colors
-    inputBg: '#1a1f2e',
-    inputBorder: 'rgba(255, 255, 255, 0.1)',
-    inputFocus: '#818cf8',
-    
-    // Overlay
-    overlayBg: 'rgba(15, 20, 25, 0.95)',
-    glassBg: 'rgba(15, 20, 25, 0.7)',
-    
-    // Code
-    codeBg: '#1a1f2e',
+    codeBg: '#1e2a3a',
     codeText: '#e2e8f0'
   }
 };
@@ -147,45 +147,7 @@ const initialChatMessages = {
   ]
 };
 
-// Theme Toggle Component
-function ThemeToggle() {
-  const { theme, setTheme } = useContext(ThemeContext);
-  const currentTheme = themes[theme];
-  
-  return (
-    <motion.button
-      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      style={{
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        width: '50px',
-        height: '50px',
-        borderRadius: '50%',
-        backgroundColor: currentTheme.surface,
-        border: `1px solid ${currentTheme.borderColor}`,
-        boxShadow: currentTheme.shadowLg,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '20px',
-        zIndex: 1000,
-        backdropFilter: 'blur(10px)'
-      }}
-    >
-      <motion.div
-        initial={false}
-        animate={{ rotate: theme === 'dark' ? 180 : 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </motion.div>
-    </motion.button>
-  );
-}
+
 
 // Message Bubble Component
 function MessageBubble({ message, index }) {
@@ -267,25 +229,56 @@ function MessageBubble({ message, index }) {
           }} />
           
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'left' }}>
-            {message.content.split('\n').map((line, i) => (
-              <div key={i} style={{ textAlign: 'left' }}>
-                {line}
-                {i < message.content.split('\n').length - 1 && <br />}
+            {message.isThinking ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Thinking</span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{ 
+                        duration: 1,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                        ease: "easeInOut"
+                      }}
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: 'currentColor'
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            ))}
-            
-            {message.isStreaming && (
-              <motion.span
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                style={{
-                  display: 'inline-block',
-                  marginLeft: '4px',
-                  fontSize: '14px'
-                }}
-              >
-                ▊
-              </motion.span>
+            ) : (
+              <>
+                {message.content.split('\n').map((line, i) => (
+                  <div key={i} style={{ textAlign: 'left' }}>
+                    {line}
+                    {i < message.content.split('\n').length - 1 && <br />}
+                  </div>
+                ))}
+                
+                {message.isStreaming && !message.isThinking && (
+                  <motion.span
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    style={{
+                      display: 'inline-block',
+                      marginLeft: '4px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    ▊
+                  </motion.span>
+                )}
+              </>
             )}
           </div>
           
@@ -337,7 +330,7 @@ function MessageBubble({ message, index }) {
 }
 
 // Chat Window Component
-function ChatWindow({ activeChat, chatMessages, onUpdateMessages, chatSessions }) {
+function ChatWindow({ activeChat, chatMessages, onUpdateMessages, chatSessions, onChatSelect }) {
   const { theme } = useContext(ThemeContext);
   const currentTheme = themes[theme];
   const [messages, setMessages] = useState([]);
@@ -348,11 +341,107 @@ function ChatWindow({ activeChat, chatMessages, onUpdateMessages, chatSessions }
   const [isDragging, setIsDragging] = useState(false);
   const [fileError, setFileError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState({});
+  
+  // Voice input states
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState(null);
+  const [speechRecognition, setSpeechRecognition] = useState(null);
+  
+  // Search states
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const searchInputRef = useRef(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onresult = (event) => {
+          let finalTranscript = '';
+          let interimTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            setNewMessage(prev => prev + finalTranscript + ' ');
+            if (textareaRef.current) {
+              const target = textareaRef.current;
+              // Always keep at 52px for voice input to match button height
+              target.style.height = '52px';
+              
+              // Only expand if there are actual line breaks or very long content
+              setTimeout(() => {
+                const scrollHeight = target.scrollHeight;
+                if (scrollHeight > 60) { // Only expand if significantly larger
+                  const newHeight = Math.min(scrollHeight, 120);
+                  target.style.height = newHeight + 'px';
+                }
+              }, 0);
+            }
+          }
+        };
+        
+        recognition.onerror = (event) => {
+          setVoiceError(`Speech recognition error: ${event.error}`);
+          setIsListening(false);
+        };
+        
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+        
+        setSpeechRecognition(recognition);
+      } else {
+        setVoiceError('Speech recognition not supported in this browser');
+      }
+    }
+  }, []);
+
+  // Voice input functions
+  const startListening = async () => {
+    if (!speechRecognition) {
+      setVoiceError('Speech recognition not available');
+      return;
+    }
+
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setVoiceError(null);
+      speechRecognition.start();
+      setIsListening(true);
+    } catch (error) {
+      setVoiceError('Microphone permission denied');
+    }
+  };
+
+  const stopListening = () => {
+    if (speechRecognition && isListening) {
+      speechRecognition.stop();
+    }
+    setIsListening(false);
+  };
+
+
 
   // Improved scroll to bottom function
   const scrollToBottom = (force = false) => {
@@ -412,6 +501,12 @@ const handleSendMessage = async (e) => {
   setAttachedFiles([]);
   setFileError(null);
   setUploadProgress({});
+  
+  // Stop voice recording if active
+  if (isListening) {
+    stopListening();
+  }
+  
   if (textareaRef.current) {
     textareaRef.current.style.height = '52px';
   }
@@ -432,9 +527,10 @@ const handleSendMessage = async (e) => {
   const assistantMessage = {
     id: updatedMessages.length + 1,
     type: "assistant",
-    content: "",
+    content: "Thinking...",
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    isStreaming: true
+    isStreaming: true,
+    isThinking: true
   };
 
   const messagesWithAssistant = [...updatedMessages, assistantMessage];
@@ -510,8 +606,9 @@ const handleSendMessage = async (e) => {
       // Update the assistant message with streamed content
       const updatedAssistantMessage = {
         ...assistantMessage,
-        content: streamedContent,
-        isStreaming: true
+        content: streamedContent || "Thinking...",
+        isStreaming: true,
+        isThinking: !streamedContent // Remove thinking state once we have content
       };
 
       const updatedMessagesWithStream = [...updatedMessages, updatedAssistantMessage];
@@ -526,7 +623,8 @@ const handleSendMessage = async (e) => {
     const finalAssistantMessage = {
       ...assistantMessage,
       content: streamedContent,
-      isStreaming: false
+      isStreaming: false,
+      isThinking: false
     };
 
     const finalMessages = [...updatedMessages, finalAssistantMessage];
@@ -543,7 +641,8 @@ const handleSendMessage = async (e) => {
     const errorMessage = {
       ...assistantMessage,
       content: "Sorry, I encountered an error while processing your request. Please try again.",
-      isStreaming: false
+      isStreaming: false,
+      isThinking: false
     };
 
     const errorMessages = [...updatedMessages, errorMessage];
@@ -559,8 +658,9 @@ const handleSendMessage = async (e) => {
 
 
   const validateFile = (file) => {
-    if (file.type !== 'application/pdf') {
-      setFileError('Only PDF files are allowed.');
+    const allowedTypes = ['application/pdf', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/webm'];
+    if (!allowedTypes.includes(file.type)) {
+      setFileError('Only PDF and audio files are allowed.');
       return false;
     }
     setFileError(null);
@@ -569,18 +669,27 @@ const handleSendMessage = async (e) => {
 
   const uploadFileAutomatically = async (file) => {
     const fileId = Date.now() + Math.random();
+    const isAudioFile = file.type.startsWith('audio/');
     
     // Add file to state with uploading status
     const fileData = {
       id: fileId,
       name: file.name,
       size: file.size,
-      status: 'uploading',
+      status: isAudioFile ? 'completed' : 'uploading',
+      type: isAudioFile ? 'audio' : 'document',
+      file: isAudioFile ? file : null,
       uploadedFileName: null,
       error: null
     };
     
     setAttachedFiles(prev => [...prev, fileData]);
+    
+    // For audio files, just add them as attachments without uploading
+    if (isAudioFile) {
+      return;
+    }
+    
     setUploadProgress(prev => ({ ...prev, [fileId]: 0 }));
     setIsUploadingFiles(true);
     
@@ -686,6 +795,55 @@ const handleSendMessage = async (e) => {
     e.target.value = '';
   };
 
+  // Search functionality
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    // Search through all chat messages
+    const results = [];
+    Object.entries(chatMessages).forEach(([chatId, messages]) => {
+      const chatSession = chatSessions.find(session => session.id === parseInt(chatId));
+      messages.forEach((message) => {
+        if (message.content.toLowerCase().includes(query.toLowerCase())) {
+          results.push({
+            chatId: parseInt(chatId),
+            chatTitle: chatSession?.title || `Chat ${chatId}`,
+            messageId: message.id,
+            message: message,
+            snippet: message.content.substring(0, 100) + (message.content.length > 100 ? '...' : '')
+          });
+        }
+      });
+    });
+    
+    setSearchResults(results);
+  };
+
+  const toggleSearch = () => {
+    setIsSearching(!isSearching);
+    if (!isSearching) {
+      setTimeout(() => searchInputRef.current?.focus(), 100);
+    } else {
+      setSearchQuery("");
+      setSearchResults([]);
+    }
+  };
+
+  const selectSearchResult = (result) => {
+    // Switch to the chat containing the search result
+    if (result.chatId !== activeChat) {
+      onChatSelect(result.chatId);
+    }
+    // Close the search
+    setIsSearching(false);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
   return (
     <div style={{
       height: '100%',
@@ -693,11 +851,196 @@ const handleSendMessage = async (e) => {
       flexDirection: 'column',
       backgroundColor: currentTheme.backgroundPrimary,
       position: 'relative',
-      borderRadius: '24px',
-      overflow: 'hidden',
-      boxShadow: currentTheme.shadowXl
+      overflow: 'hidden'
     }}>
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={{
+          padding: '20px 24px',
+          borderBottom: `1px solid ${currentTheme.borderColor}`,
+          backgroundColor: currentTheme.surface,
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: currentTheme.accentPrimary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px'
+          }}>
+            🤖
+          </div>
+          <h1 style={{
+            color: currentTheme.accentPrimary,
+            fontSize: '24px',
+            fontWeight: '700',
+            margin: 0
+          }}>
+            Teddy Rag.AI
+          </h1>
+        </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Search Input (when expanded) */}
+          <AnimatePresence>
+            {isSearching && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 300, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                style={{ overflow: 'hidden' }}
+              >
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search in conversations..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    borderRadius: '12px',
+                    border: `1px solid ${currentTheme.inputBorder}`,
+                    backgroundColor: currentTheme.inputBg,
+                    color: currentTheme.textPrimary,
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = currentTheme.accentPrimary;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = currentTheme.inputBorder;
+                  }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Search Button */}
+          <motion.button
+            onClick={toggleSearch}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              backgroundColor: isSearching ? currentTheme.accentPrimary : 'transparent',
+              border: `1px solid ${isSearching ? currentTheme.accentPrimary : currentTheme.borderColor}`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              color: isSearching ? '#ffffff' : currentTheme.textSecondary,
+              transition: 'all 0.2s ease',
+              flexShrink: 0
+            }}
+          >
+            {isSearching ? '✕' : '🔍'}
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* Search Results Dropdown */}
+      <AnimatePresence>
+        {isSearching && searchResults.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: 'absolute',
+              top: '84px',
+              right: '24px',
+              width: '400px',
+              maxHeight: '300px',
+              backgroundColor: currentTheme.surface,
+              borderRadius: '16px',
+              boxShadow: currentTheme.shadowXl,
+              border: `1px solid ${currentTheme.borderColor}`,
+              zIndex: 1000,
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              className="custom-scrollbar"
+              style={{
+                maxHeight: '300px',
+                overflowY: 'auto'
+              }}
+            >
+              {searchResults.map((result, index) => (
+                <motion.div
+                  key={`${result.chatId}-${result.messageId}`}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => selectSearchResult(result)}
+                  style={{
+                    padding: '16px 20px',
+                    borderBottom: index < searchResults.length - 1 ? `1px solid ${currentTheme.borderColor}` : 'none',
+                    cursor: 'pointer',
+                    backgroundColor: 'transparent',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = currentTheme.surfaceHover;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <div style={{
+                    fontSize: '12px',
+                    color: currentTheme.accentPrimary,
+                    fontWeight: '600',
+                    marginBottom: '4px'
+                  }}>
+                    {result.chatTitle}
+                  </div>
+                  <div style={{
+                    fontSize: '14px',
+                    color: currentTheme.textPrimary,
+                    lineHeight: '1.4'
+                  }}>
+                    {result.snippet}
+                  </div>
+                  <div style={{
+                    fontSize: '11px',
+                    color: currentTheme.textTertiary,
+                    marginTop: '6px'
+                  }}>
+                    {result.message.type === 'user' ? 'You' : 'Assistant'} • {result.message.timestamp}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Scroll to bottom button */}
       <AnimatePresence>
@@ -739,7 +1082,7 @@ const handleSendMessage = async (e) => {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '30px 20px 150px 20px',
+          padding: '20px 20px 150px 20px',
           scrollBehavior: 'smooth'
         }}
       >
@@ -800,14 +1143,14 @@ const handleSendMessage = async (e) => {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,audio/*"
           multiple
           onChange={handleFileSelect}
           style={{ display: 'none' }}
         />
 
         <AnimatePresence>
-          {fileError && (
+          {(fileError || voiceError) && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -821,7 +1164,7 @@ const handleSendMessage = async (e) => {
                 fontSize: '14px'
               }}
             >
-              {fileError}
+              {fileError || voiceError}
             </motion.div>
           )}
         </AnimatePresence>
@@ -853,7 +1196,7 @@ const handleSendMessage = async (e) => {
                     background: file.status === 'error' 
                       ? `${currentTheme.error}20` 
                       : file.status === 'completed' 
-                        ? currentTheme.accentGradient 
+                        ? currentTheme.accentPrimary 
                         : currentTheme.surfaceHover,
                     color: file.status === 'error' 
                       ? currentTheme.error 
@@ -900,7 +1243,7 @@ const handleSendMessage = async (e) => {
                           }}
                         />
                       )}
-                      {file.status === 'completed' && '✅'}
+                      {file.status === 'completed' && (file.type === 'audio' ? '🎵' : '📄')}
                       {file.status === 'error' && '❌'}
                     </span>
                     
@@ -977,40 +1320,90 @@ const handleSendMessage = async (e) => {
                 color: currentTheme.accentPrimary
               }}>
                 <div style={{ fontSize: '24px', marginBottom: '8px' }}>📁</div>
-                <div>Drop PDF files here</div>
+                <div>Drop PDF or audio files here</div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '12px', 
+          alignItems: 'center',
+          minHeight: '52px'
+        }}>
+          {/* Attachment button - Left */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading || isListening}
+            style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '16px',
+              backgroundColor: 'transparent',
+              border: `2px solid ${currentTheme.borderColor}`,
+              cursor: (isLoading || isListening) ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px',
+              color: currentTheme.textSecondary,
+              transition: 'all 0.2s ease',
+              opacity: (isLoading || isListening) ? 0.5 : 1,
+              flexShrink: 0
+            }}
+          >
+            📎
+          </button>
+          
+          {/* Text area - Center (expandable) */}
           <textarea
             ref={textareaRef}
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
               const target = e.target;
-              target.style.height = 'auto';
-              const newHeight = Math.min(target.scrollHeight, 120);
-              target.style.height = newHeight + 'px';
+              
+              // Always reset to button height first
+              target.style.height = '52px';
+              
+              // Only expand if content contains line breaks OR is very long
+              const hasLineBreaks = e.target.value.includes('\n');
+              const isVeryLong = e.target.value.length > 100; // Adjust threshold as needed
+              
+              if (hasLineBreaks || isVeryLong) {
+                // Use setTimeout to ensure accurate scrollHeight calculation
+                setTimeout(() => {
+                  const scrollHeight = target.scrollHeight;
+                  if (scrollHeight > 60) { // Only if actually needs more space
+                    const newHeight = Math.min(scrollHeight, 120);
+                    target.style.height = newHeight + 'px';
+                  }
+                }, 0);
+              }
             }}
-            placeholder={isLoading ? "Processing..." : "Type your message..."}
-            disabled={isLoading}
+            placeholder={isListening ? "Listening..." : "Type your message..."}
             className="custom-scrollbar-compact"
             style={{
               flex: 1,
               backgroundColor: currentTheme.inputBg,
               color: currentTheme.textPrimary,
-              border: `1px solid ${currentTheme.inputBorder}`,
+              border: `1px solid ${isListening ? currentTheme.accentPrimary : currentTheme.inputBorder}`,
               borderRadius: '16px',
-              padding: '14px 18px',
+              padding: '15px 18px', // Adjusted to match button height exactly
               fontSize: '15px',
               resize: 'none',
               outline: 'none',
               fontFamily: 'inherit',
+              height: '52px',
               minHeight: '52px',
               maxHeight: '120px',
-              transition: 'all 0.2s ease'
+              transition: 'height 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+              boxShadow: isListening ? `0 0 0 2px ${currentTheme.accentPrimary}20` : 'none',
+              lineHeight: '20px', // Adjusted for better alignment
+              verticalAlign: 'top',
+              boxSizing: 'border-box' // Ensure consistent sizing
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -1020,27 +1413,50 @@ const handleSendMessage = async (e) => {
             }}
           />
           
-          <button
+          {/* Voice input button - Right */}
+          <motion.button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={isListening ? stopListening : startListening}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
               width: '52px',
               height: '52px',
               borderRadius: '16px',
-              backgroundColor: 'transparent',
-              border: `2px solid ${currentTheme.borderColor}`,
+              backgroundColor: isListening ? currentTheme.accentPrimary : 'transparent',
+              border: `2px solid ${isListening ? currentTheme.accentPrimary : currentTheme.borderColor}`,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '20px',
-              transition: 'all 0.2s ease'
+              color: isListening ? '#ffffff' : currentTheme.textSecondary,
+              transition: 'all 0.3s ease',
+              opacity: 1,
+              flexShrink: 0
             }}
           >
-            📎
-          </button>
+            {isListening ? (
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.3, 1],
+                  rotate: [0, 5, -5, 0]
+                }}
+                transition={{ 
+                  duration: 0.8, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                🎤
+              </motion.div>
+            ) : (
+              '🎤'
+            )}
+          </motion.button>
           
-                    <motion.button
+          {/* Send button - Right */}
+          <motion.button
             type="submit"
             whileHover={(!isLoading && !isUploadingFiles) ? { scale: 1.05 } : {}}
             whileTap={(!isLoading && !isUploadingFiles) ? { scale: 0.95 } : {}}
@@ -1052,7 +1468,7 @@ const handleSendMessage = async (e) => {
               background: (isLoading || isUploadingFiles)
                 ? currentTheme.surfaceHover
                 : (newMessage.trim() || attachedFiles.some(f => f.status === 'completed')) 
-                  ? currentTheme.accentGradient 
+                  ? currentTheme.accentPrimary 
                   : currentTheme.surfaceHover,
               border: 'none',
               cursor: ((newMessage.trim() || attachedFiles.some(f => f.status === 'completed')) && !isLoading && !isUploadingFiles) 
@@ -1068,7 +1484,8 @@ const handleSendMessage = async (e) => {
                   ? '#ffffff' 
                   : currentTheme.textSecondary,
               transition: 'all 0.2s ease',
-              opacity: (isLoading || isUploadingFiles) ? 0.7 : 1
+              opacity: (isLoading || isUploadingFiles) ? 0.7 : 1,
+              flexShrink: 0
             }}
           >
             {isLoading ? (
@@ -1121,9 +1538,10 @@ function ThemeProvider({ children }) {
 
 // Sidebar Component
 function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onChatSelect, onNewChat }) {
-  const { theme } = useContext(ThemeContext);
+  const { theme, setTheme } = useContext(ThemeContext);
   const currentTheme = themes[theme];
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   
   const toggleSidebar = () => {
     setSidebarExpanded(!sidebarExpanded);
@@ -1133,19 +1551,28 @@ function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onC
     <motion.div
       initial={{ x: -300 }}
       animate={{ x: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
       style={{
         height: '100vh',
         backgroundColor: currentTheme.backgroundSecondary,
         borderRight: `1px solid ${currentTheme.borderColor}`,
         overflow: 'hidden',
         flexShrink: 0,
-        position: 'relative'
+        position: 'relative',
+        willChange: 'width'
       }}
     >
       <motion.div
         animate={{ width: sidebarExpanded ? 320 : 80 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        style={{ height: '100%' }}
+        transition={{ 
+          duration: 0.4, 
+          ease: [0.23, 1, 0.320, 1], // Custom cubic-bezier for smoother animation
+          layout: { duration: 0.4 }
+        }}
+        style={{ 
+          height: '100%',
+          willChange: 'width'
+        }}
       >
         {/* Header */}
         <div style={{
@@ -1161,11 +1588,13 @@ function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onC
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25, delay: 0.15 }}
                 style={{
                   color: currentTheme.accentPrimary,
                   fontSize: '20px',
                   fontWeight: 'bold',
-                  margin: 0
+                  margin: 0,
+                  whiteSpace: 'nowrap'
                 }}
               >
                 Conversations
@@ -1193,7 +1622,7 @@ function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onC
           >
             <motion.div
               animate={{ rotate: sidebarExpanded ? 0 : 180 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.4, ease: [0.23, 1, 0.320, 1] }}
             >
               ☰
             </motion.div>
@@ -1235,9 +1664,10 @@ function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onC
         <div 
           className="custom-scrollbar"
           style={{
-            height: 'calc(100% - 160px)',
+            height: 'calc(100% - 280px)', // More space to prevent overlap with settings
             overflowY: 'auto',
-            padding: sidebarExpanded ? '16px' : '16px 8px'
+            padding: sidebarExpanded ? '16px' : '16px 8px',
+            marginBottom: '8px' // Additional margin
           }}
         >
           {chatSessions.map((chat, index) => (
@@ -1286,7 +1716,16 @@ function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onC
                     initial={{ opacity: 0, width: 0 }}
                     animate={{ opacity: 1, width: 'auto' }}
                     exit={{ opacity: 0, width: 0 }}
-                    style={{ overflow: 'hidden', flex: 1 }}
+                    transition={{ 
+                      duration: 0.3,
+                      delay: sidebarExpanded ? 0.2 : 0,
+                      ease: "easeOut"
+                    }}
+                    style={{ 
+                      overflow: 'hidden', 
+                      flex: 1,
+                      whiteSpace: 'nowrap'
+                    }}
                   >
                     <div style={{
                       display: 'flex',
@@ -1349,6 +1788,129 @@ function Sidebar({ activeChat, chatMessages, onUpdateMessages, chatSessions, onC
             </motion.div>
           ))}
         </div>
+
+        {/* Settings Section */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTop: `1px solid ${currentTheme.borderColor}`,
+          backgroundColor: currentTheme.backgroundSecondary
+        }}>
+          {/* Settings Button */}
+          <div style={{
+            padding: sidebarExpanded ? '16px 20px' : '16px 10px'
+          }}>
+            <motion.button
+              onClick={() => setShowSettings(!showSettings)}
+              whileHover={{ scale: sidebarExpanded ? 1.02 : 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              style={{
+                width: '100%',
+                padding: sidebarExpanded ? '12px 16px' : '12px 0',
+                background: showSettings ? currentTheme.surfaceHover : 'transparent',
+                border: `1px solid ${currentTheme.borderColor}`,
+                borderRadius: '12px',
+                color: currentTheme.textPrimary,
+                fontSize: sidebarExpanded ? '14px' : '18px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarExpanded ? 'flex-start' : 'center',
+                gap: sidebarExpanded ? '12px' : '0',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <span>⚙️</span>
+              {sidebarExpanded && <span>Settings</span>}
+            </motion.button>
+          </div>
+
+          {/* Settings Panel */}
+          <AnimatePresence>
+            {showSettings && sidebarExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                style={{
+                  overflow: 'hidden',
+                  borderTop: `1px solid ${currentTheme.borderColor}`,
+                  backgroundColor: currentTheme.surface
+                }}
+              >
+                <div style={{ padding: '16px 20px' }}>
+                  {/* Theme Toggle */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '12px'
+                  }}>
+                    <span style={{
+                      color: currentTheme.textPrimary,
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}>
+                      Theme
+                    </span>
+                    <motion.button
+                      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      style={{
+                        width: '50px',
+                        height: '28px',
+                        borderRadius: '14px',
+                        backgroundColor: theme === 'dark' ? currentTheme.accentPrimary : currentTheme.borderColor,
+                        border: 'none',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <motion.div
+                        animate={{ 
+                          x: theme === 'dark' ? 22 : 0,
+                        }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        style={{
+                          position: 'absolute',
+                          left: '2px',
+                          top: '2px',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '12px',
+                          backgroundColor: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {theme === 'light' ? '🌙' : '☀️'}
+                      </motion.div>
+                    </motion.button>
+                  </div>
+
+                  {/* Additional Settings can go here */}
+                  <div style={{
+                    fontSize: '12px',
+                    color: currentTheme.textTertiary,
+                    textAlign: 'center',
+                    marginTop: '8px'
+                  }}>
+                    v1.0.0
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -1398,13 +1960,15 @@ function App() {
 
   return (
     <ThemeProvider>
-      <div style={{
-        display: 'flex',
-        height: '100vh',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}>
-        <ThemeToggle />
-        
+      <motion.div 
+        layout
+        style={{
+          display: 'flex',
+          height: '100vh',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          overflow: 'hidden'
+        }}
+      >
         <Sidebar
           activeChat={activeChat}
           chatMessages={allChatMessages}
@@ -1414,21 +1978,30 @@ function App() {
           onNewChat={handleNewChat}
         />
         
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          position: 'relative'
-        }}>
+        <motion.div 
+          layout
+          transition={{
+            duration: 0.4,
+            ease: [0.23, 1, 0.320, 1]
+          }}
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            position: 'relative',
+            willChange: 'width'
+          }}
+        >
           <ChatWindow
             activeChat={activeChat}
             chatMessages={allChatMessages}
             onUpdateMessages={handleUpdateMessages}
             chatSessions={chatSessions}
+            onChatSelect={handleChatSelect}
           />
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </ThemeProvider>
   );
 }
