@@ -15,6 +15,7 @@ from pathlib import Path
 
 from src.core.rag_system import RAGQuestionAnswering, RAGConfig
 from src.core.audio_processor import create_audio_processor
+from src.core.multimodal_processor import create_multimodal_processor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +53,16 @@ class AudioQueryResponse(BaseModel):
     response_time: float
     audio_metadata: Dict[str, Any]
     classification: Optional[Dict[str, Any]] = None
+    method: str
+
+class MultimodalQueryResponse(BaseModel):
+    image_analysis: str
+    answer: str
+    sources: List[Dict[str, Any]]
+    context_used: bool
+    response_time: float
+    image_metadata: Dict[str, Any]
+    text_query: str
     method: str
 
 # Global RAG system instance
@@ -529,3 +540,278 @@ async def audio_query_stream(
     except Exception as e:
         logger.error(f"Audio streaming setup failed: {e}")
         raise HTTPException(status_code=500, detail=f"Audio streaming setup failed: {str(e)}")
+
+@rag_app.post("/multimodal-query", response_model=MultimodalQueryResponse)
+async def multimodal_query(
+    image_file: UploadFile = File(..., description="Image file to analyze"),
+    text_query: str = Query(..., description="Text question about the image"),
+    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation"),
+    use_document_context: Optional[bool] = Query(True, description="Whether to include document context in analysis")
+):
+    """
+    Multimodal RAG endpoint: Analyze image with text query
+    
+    This endpoint:
+    1. Accepts an image file upload and text query
+    2. Analyzes the image using Qwen2.5VL vision model
+    3. Optionally retrieves relevant document context
+    4. Combines image analysis with text query and context
+    5. Returns comprehensive multimodal response
+    """
+    import time
+    start_time = time.time()
+    
+    try:
+        # Validate image file
+        if not image_file.filename:
+            raise HTTPException(status_code=400, detail="No image file provided")
+        
+        # Check image file extension
+        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp']
+        file_extension = Path(image_file.filename).suffix.lower()
+        
+        if file_extension not in image_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported image format: {file_extension}. Supported: {', '.join(image_extensions)}"
+            )
+        
+        # Create temporary file for image processing
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+            # Save uploaded image to temp file
+            content = await image_file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Initialize multimodal processor
+            logger.info(f"Processing multimodal query - Image: {image_file.filename}, Query: {text_query[:100]}...")
+            multimodal_processor = create_multimodal_processor(model="qwen2.5vl:7b")
+            
+            # Get document context if requested
+            context_documents = []
+            if use_document_context:
+                try:
+                    rag = get_rag_system()
+                    # Search for relevant documents using the text query
+                    search_results_data = rag.search_engine.search(text_query, max_results=search_results)
+                    context_documents = search_results_data if search_results_data else []
+                    logger.info(f"Retrieved {len(context_documents)} context documents")
+                except Exception as e:
+                    logger.warning(f"Failed to retrieve document context: {e}")
+                    context_documents = []
+            
+            # Analyze image with context
+            multimodal_result = multimodal_processor.analyze_image_with_context(
+                temp_file_path,
+                text_query,
+                context_documents
+            )
+            
+            # Calculate total response time
+            response_time = time.time() - start_time
+            
+            # Prepare sources from context documents
+            sources = []
+            if context_documents:
+                sources = [
+                    {
+                        "content": doc.get("content", "")[:500] + "..." if len(doc.get("content", "")) > 500 else doc.get("content", ""),
+                        "metadata": doc.get("metadata", {}),
+                        "relevance_score": doc.get("score", 0.0)
+                    }
+                    for doc in context_documents[:search_results]
+                ]
+            
+            logger.info(f"Multimodal query completed: {len(multimodal_result['answer'])} characters")
+            
+            return MultimodalQueryResponse(
+                image_analysis=multimodal_result["image_analysis"],
+                answer=multimodal_result["answer"],
+                sources=sources,
+                context_used=multimodal_result["context_used"],
+                response_time=response_time,
+                image_metadata=multimodal_result["image_metadata"],
+                text_query=text_query,
+                method=multimodal_result["method"]
+            )
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Multimodal query failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Multimodal query processing failed: {str(e)}")
+
+@rag_app.post("/multimodal-query-stream")
+async def multimodal_query_stream(
+    image_file: UploadFile = File(..., description="Image file to analyze"),
+    text_query: str = Query(..., description="Text question about the image"),
+    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation"),
+    use_document_context: Optional[bool] = Query(True, description="Whether to include document context in analysis")
+):
+    """
+    Streaming Multimodal RAG endpoint
+    
+    Similar to multimodal-query but streams the response for real-time interaction
+    """
+    try:
+        # Validate image file (same as above)
+        if not image_file.filename:
+            raise HTTPException(status_code=400, detail="No image file provided")
+        
+        # Check image file extension
+        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp']
+        file_extension = Path(image_file.filename).suffix.lower()
+        
+        if file_extension not in image_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported image format: {file_extension}. Supported: {', '.join(image_extensions)}"
+            )
+        
+        # Create temporary file for image processing
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+            content = await image_file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        async def generate_multimodal_response():
+            try:
+                # Initialize multimodal processor
+                logger.info(f"Processing streaming multimodal query - Image: {image_file.filename}")
+                multimodal_processor = create_multimodal_processor(model="qwen2.5vl:7b")
+                
+                # First, send image analysis
+                yield "data: " + json.dumps({
+                    "type": "status",
+                    "message": "Analyzing image...",
+                    "image_filename": image_file.filename
+                }) + "\n\n"
+                
+                # Get basic image analysis
+                image_result = multimodal_processor.analyze_image(
+                    temp_file_path, 
+                    prompt=f"Analyze this image in the context of this question: {text_query}"
+                )
+                
+                yield "data: " + json.dumps({
+                    "type": "image_analysis",
+                    "image_analysis": image_result.description,
+                    "image_metadata": image_result.metadata
+                }) + "\n\n"
+                
+                # Get document context if requested
+                context_documents = []
+                if use_document_context:
+                    yield "data: " + json.dumps({
+                        "type": "status",
+                        "message": "Retrieving relevant documents..."
+                    }) + "\n\n"
+                    
+                    try:
+                        rag = get_rag_system()
+                        search_results_data = rag.search_engine.search(text_query, max_results=search_results)
+                        context_documents = search_results_data if search_results_data else []
+                        
+                        yield "data: " + json.dumps({
+                            "type": "context",
+                            "num_documents": len(context_documents),
+                            "context_used": len(context_documents) > 0
+                        }) + "\n\n"
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to retrieve document context: {e}")
+                        yield "data: " + json.dumps({
+                            "type": "warning",
+                            "message": f"Could not retrieve document context: {str(e)}"
+                        }) + "\n\n"
+                
+                # Generate final response
+                yield "data: " + json.dumps({
+                    "type": "status",
+                    "message": "Generating comprehensive response..."
+                }) + "\n\n"
+                
+                # Build comprehensive prompt for streaming
+                prompt_parts = [
+                    f"User Question: {text_query}",
+                    f"Image Analysis: {image_result.description}"
+                ]
+                
+                if context_documents:
+                    context_text = "\n\n".join([
+                        f"Document {i+1}: {doc.get('content', '')[:500]}..."
+                        for i, doc in enumerate(context_documents[:3])
+                    ])
+                    prompt_parts.append(f"Relevant Context:\n{context_text}")
+                
+                prompt_parts.append(
+                    "Based on the image analysis and any provided context, "
+                    "provide a comprehensive answer to the user's question."
+                )
+                
+                full_prompt = "\n\n".join(prompt_parts)
+                
+                # Stream the final response
+                response_stream = multimodal_processor.ollama_client.chat(
+                    model="qwen2.5vl:7b",
+                    messages=[
+                        {
+                            'role': 'user',
+                            'content': full_prompt,
+                            'images': [multimodal_processor._image_to_base64(
+                                multimodal_processor._preprocess_image(temp_file_path)[0]
+                            )]
+                        }
+                    ],
+                    stream=True
+                )
+                
+                # Stream response chunks
+                for chunk in response_stream:
+                    if chunk['message'].get('content'):
+                        yield "data: " + json.dumps({
+                            "type": "answer_chunk",
+                            "content": chunk['message']['content']
+                        }) + "\n\n"
+                
+                # Send completion
+                yield "data: " + json.dumps({
+                    "type": "complete",
+                    "method": "multimodal_rag_stream"
+                }) + "\n\n"
+                
+            except Exception as e:
+                logger.error(f"Streaming multimodal query failed: {e}")
+                yield "data: " + json.dumps({
+                    "type": "error",
+                    "error": f"Multimodal query processing failed: {str(e)}"
+                }) + "\n\n"
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+        
+        return StreamingResponse(
+            generate_multimodal_response(), 
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Multimodal streaming setup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Multimodal streaming setup failed: {str(e)}")

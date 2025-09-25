@@ -28,6 +28,9 @@ from langchain.schema import Document
 # Import audio processor for STT functionality
 from .audio_processor import create_audio_processor, AudioProcessor
 
+# Import multimodal processor for image analysis
+from .multimodal_processor import create_multimodal_processor, MultimodalProcessor
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,13 +60,14 @@ class DocumentProcessor:
     Main class for processing documents and converting them into chunks
     """
     
-    def __init__(self, config: ChunkingConfig = None, enable_audio: bool = True):
+    def __init__(self, config: ChunkingConfig = None, enable_audio: bool = True, enable_images: bool = True):
         """
         Initialize the document processor
         
         Args:
             config: ChunkingConfig object with chunking parameters
             enable_audio: Whether to enable audio file processing (STT)
+            enable_images: Whether to enable image file processing (Vision)
         """
         self.config = config or ChunkingConfig()
         self.supported_extensions = {
@@ -98,6 +102,29 @@ class DocumentProcessor:
                 logger.warning(f"Failed to initialize audio processor: {e}")
                 self.enable_audio = False
                 self.audio_processor = None
+        
+        # Add image support if enabled
+        self.enable_images = enable_images
+        if enable_images:
+            try:
+                self.multimodal_processor = create_multimodal_processor(model="qwen2.5vl:7b")
+                # Add image extensions
+                image_extensions = {
+                    '.jpg': self._load_image,
+                    '.jpeg': self._load_image,
+                    '.png': self._load_image,
+                    '.gif': self._load_image,
+                    '.bmp': self._load_image,
+                    '.tiff': self._load_image,
+                    '.tif': self._load_image,
+                    '.webp': self._load_image
+                }
+                self.supported_extensions.update(image_extensions)
+                logger.info("Image processing enabled with Qwen2.5VL vision model")
+            except Exception as e:
+                logger.warning(f"Failed to initialize multimodal processor: {e}")
+                self.enable_images = False
+                self.multimodal_processor = None
     
     def _get_file_type(self, file_path: str) -> str:
         """Determine file type from extension"""
@@ -183,6 +210,39 @@ class DocumentProcessor:
             
         except Exception as e:
             logger.error(f"Failed to load audio {file_path}: {e}")
+            raise
+    
+    def _load_image(self, file_path: str) -> List[Document]:
+        """Load image document using Vision analysis"""
+        if not self.enable_images or not self.multimodal_processor:
+            raise ValueError("Image processing is not enabled")
+        
+        try:
+            filename = Path(file_path).name
+            logger.info(f"Starting image analysis: {filename}")
+            
+            # Process image and get description
+            image_result = self.multimodal_processor.process_image_for_rag(
+                file_path, 
+                filename,
+                description_prompt="Provide a comprehensive description of this image, including objects, people, text, scenes, colors, and any other relevant details that would be useful for document search and question answering."
+            )
+            
+            # Create Document object similar to text documents
+            document = Document(
+                page_content=image_result["content"],
+                metadata={
+                    "source": file_path,
+                    "filename": filename,
+                    **image_result["metadata"]
+                }
+            )
+            
+            logger.info(f"Successfully analyzed image: {filename} ({len(image_result['content'])} characters)")
+            return [document]
+            
+        except Exception as e:
+            logger.error(f"Failed to load image {file_path}: {e}")
             raise
     
     def load_document(self, file_path: str) -> List[Document]:

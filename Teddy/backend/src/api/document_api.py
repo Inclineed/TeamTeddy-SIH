@@ -50,8 +50,8 @@ class DocumentListResponse(BaseModel):
     documents: List[ProcessedDocumentResponse]
     total_documents: int
 
-# Global processor instance with audio support enabled
-processor = DocumentProcessor(enable_audio=True)
+# Global processor instance with audio and image support enabled
+processor = DocumentProcessor(enable_audio=True, enable_images=True)
 
 # Upload directory - ensure it matches search_api expectations
 UPLOAD_DIR = Path(__file__).parent.parent.parent / "data"
@@ -116,7 +116,10 @@ async def _upload_single_file(file: UploadFile) -> Dict[str, str]:
     # Audio extensions for Speech-to-Text
     audio_extensions = ['.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma', '.mp4', '.avi', '.mov', '.mkv']
     
-    supported_extensions = document_extensions + audio_extensions
+    # Image extensions for Vision analysis
+    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp']
+    
+    supported_extensions = document_extensions + audio_extensions + image_extensions
     
     if file_extension not in supported_extensions:
         file_type = "audio" if file_extension in audio_extensions else "document"
@@ -178,9 +181,9 @@ async def process_document(
             chunk_overlap=chunk_overlap
         )
         
-        # Update processor config with audio support
+        # Update processor config with audio and image support
         global processor
-        processor = DocumentProcessor(config, enable_audio=True)
+        processor = DocumentProcessor(config, enable_audio=True, enable_images=True)
         
         # Process the document
         processed_doc = processor.process_file(str(file_path), splitter_type)
@@ -228,7 +231,7 @@ async def upload_and_process_document(
         )
         
         global processor
-        processor = DocumentProcessor(config, enable_audio=True)
+        processor = DocumentProcessor(config, enable_audio=True, enable_images=True)
         
         file_path = UPLOAD_DIR / filename
         processed_doc = processor.process_file(str(file_path), splitter_type)
