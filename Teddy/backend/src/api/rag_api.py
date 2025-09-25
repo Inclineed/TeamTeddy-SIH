@@ -3,14 +3,18 @@ FastAPI endpoints for RAG Question-Answering system
 Provides REST API for question answering with document context
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, File, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, AsyncGenerator
 import logging
 import json
+import tempfile
+import os
+from pathlib import Path
 
 from src.core.rag_system import RAGQuestionAnswering, RAGConfig
+from src.core.audio_processor import create_audio_processor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +43,16 @@ class AnswerResponse(BaseModel):
     method: str
     max_relevance_score: Optional[float] = None
     num_sources: Optional[int] = None
+
+class AudioQueryResponse(BaseModel):
+    transcribed_text: str
+    answer: str
+    sources: List[Dict[str, Any]]
+    context_used: bool
+    response_time: float
+    audio_metadata: Dict[str, Any]
+    classification: Optional[Dict[str, Any]] = None
+    method: str
 
 # Global RAG system instance
 rag_system = None
@@ -282,3 +296,236 @@ async def update_configuration(
     except Exception as e:
         logger.error(f"Config update failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@rag_app.post("/audio-query", response_model=AudioQueryResponse)
+async def audio_query(
+    audio_file: UploadFile = File(..., description="Audio file to transcribe and query"),
+    additional_text: Optional[str] = Query(None, description="Additional text to combine with transcribed audio"),
+    source_file: Optional[str] = Query(None, description="Optional specific file to search within"),
+    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation")
+):
+    """
+    Speech-to-Text + RAG endpoint: Transcribe audio and answer questions
+    
+    This endpoint:
+    1. Accepts an audio file upload
+    2. Transcribes the audio to text using Whisper STT
+    3. Optionally combines with additional text query
+    4. Uses the transcribed text as a question for RAG system
+    5. Returns both transcription and answer with sources
+    """
+    import time
+    start_time = time.time()
+    
+    try:
+        # Validate audio file
+        if not audio_file.filename:
+            raise HTTPException(status_code=400, detail="No audio file provided")
+        
+        # Check audio file extension
+        audio_extensions = ['.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma', '.mp4', '.avi', '.mov', '.mkv']
+        file_extension = Path(audio_file.filename).suffix.lower()
+        
+        if file_extension not in audio_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported audio format: {file_extension}. Supported: {', '.join(audio_extensions)}"
+            )
+        
+        # Create temporary file for audio processing
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+            # Save uploaded audio to temp file
+            content = await audio_file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Initialize audio processor
+            logger.info(f"Processing audio file: {audio_file.filename}")
+            audio_processor = create_audio_processor(backend="whisper")
+            
+            # Transcribe audio
+            transcription_result = audio_processor.transcribe_audio(temp_file_path)
+            transcribed_text = transcription_result.text
+            
+            if not transcribed_text.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="No speech detected in audio file"
+                )
+            
+            logger.info(f"Audio transcribed successfully: {len(transcribed_text)} characters")
+            
+            # Combine transcribed text with additional text if provided
+            final_question = transcribed_text
+            if additional_text and additional_text.strip():
+                final_question = f"{transcribed_text} {additional_text}"
+            
+            # Get RAG system and answer the question
+            rag = get_rag_system()
+            
+            # Temporarily update temperature if provided
+            original_temperature = rag.config.temperature
+            if temperature is not None:
+                rag.config.temperature = temperature
+            
+            try:
+                # Get answer using RAG system
+                answer_result = await rag.answer_question(
+                    final_question,
+                    max_results=search_results
+                )
+            finally:
+                # Restore original temperature
+                rag.config.temperature = original_temperature
+            
+            # Calculate total response time
+            response_time = time.time() - start_time
+            
+            # Prepare audio metadata
+            audio_metadata = {
+                "filename": audio_file.filename,
+                "file_extension": file_extension,
+                "transcription_duration": transcription_result.duration,
+                "transcription_language": transcription_result.language,
+                "transcription_confidence": transcription_result.confidence,
+                "stt_backend": "whisper",
+                "character_count": len(transcribed_text),
+                "combined_with_text": bool(additional_text and additional_text.strip())
+            }
+            
+            # Add transcription metadata if available
+            if transcription_result.metadata:
+                audio_metadata.update(transcription_result.metadata)
+            
+            return AudioQueryResponse(
+                transcribed_text=transcribed_text,
+                answer=answer_result["answer"],
+                sources=answer_result["sources"],
+                context_used=answer_result["context_used"],
+                response_time=response_time,
+                audio_metadata=audio_metadata,
+                classification=answer_result.get("classification"),
+                method=answer_result.get("method", "rag")
+            )
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Audio query failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Audio query processing failed: {str(e)}")
+
+@rag_app.post("/audio-query-stream")
+async def audio_query_stream(
+    audio_file: UploadFile = File(..., description="Audio file to transcribe and query"),
+    additional_text: Optional[str] = Query(None, description="Additional text to combine with transcribed audio"),
+    source_file: Optional[str] = Query(None, description="Optional specific file to search within"),
+    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation")
+):
+    """
+    Streaming Speech-to-Text + RAG endpoint
+    
+    Similar to audio-query but streams the response for real-time interaction
+    """
+    try:
+        # Validate audio file (same as above)
+        if not audio_file.filename:
+            raise HTTPException(status_code=400, detail="No audio file provided")
+        
+        # Check audio file extension
+        audio_extensions = ['.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma', '.mp4', '.avi', '.mov', '.mkv']
+        file_extension = Path(audio_file.filename).suffix.lower()
+        
+        if file_extension not in audio_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported audio format: {file_extension}. Supported: {', '.join(audio_extensions)}"
+            )
+        
+        # Create temporary file for audio processing
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+            content = await audio_file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        async def generate_audio_response():
+            try:
+                # Initialize audio processor and transcribe
+                logger.info(f"Processing audio file for streaming: {audio_file.filename}")
+                audio_processor = create_audio_processor(backend="whisper")
+                transcription_result = audio_processor.transcribe_audio(temp_file_path)
+                transcribed_text = transcription_result.text
+                
+                if not transcribed_text.strip():
+                    yield "data: " + json.dumps({
+                        "error": "No speech detected in audio file"
+                    }) + "\n\n"
+                    return
+                
+                # Send transcription result first
+                yield "data: " + json.dumps({
+                    "type": "transcription",
+                    "transcribed_text": transcribed_text,
+                    "audio_metadata": {
+                        "filename": audio_file.filename,
+                        "duration": transcription_result.duration,
+                        "character_count": len(transcribed_text)
+                    }
+                }) + "\n\n"
+                
+                # Combine with additional text if provided
+                final_question = transcribed_text
+                if additional_text and additional_text.strip():
+                    final_question = f"{transcribed_text} {additional_text}"
+                
+                # Stream RAG response
+                rag = get_rag_system()
+                
+                # Temporarily update temperature if provided
+                original_temperature = rag.config.temperature
+                if temperature is not None:
+                    rag.config.temperature = temperature
+                
+                try:
+                    async for chunk in rag.answer_question_stream(
+                        final_question,
+                        max_results=search_results
+                    ):
+                        yield f"data: {chunk}\n\n"
+                finally:
+                    # Restore original temperature
+                    rag.config.temperature = original_temperature
+                
+            except Exception as e:
+                logger.error(f"Streaming audio query failed: {e}")
+                yield "data: " + json.dumps({
+                    "error": f"Audio query processing failed: {str(e)}"
+                }) + "\n\n"
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+        
+        return StreamingResponse(
+            generate_audio_response(), 
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Audio streaming setup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Audio streaming setup failed: {str(e)}")

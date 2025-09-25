@@ -25,6 +25,9 @@ from langchain.text_splitter import (
 
 from langchain.schema import Document
 
+# Import audio processor for STT functionality
+from .audio_processor import create_audio_processor, AudioProcessor
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,12 +57,13 @@ class DocumentProcessor:
     Main class for processing documents and converting them into chunks
     """
     
-    def __init__(self, config: ChunkingConfig = None):
+    def __init__(self, config: ChunkingConfig = None, enable_audio: bool = True):
         """
         Initialize the document processor
         
         Args:
             config: ChunkingConfig object with chunking parameters
+            enable_audio: Whether to enable audio file processing (STT)
         """
         self.config = config or ChunkingConfig()
         self.supported_extensions = {
@@ -68,6 +72,32 @@ class DocumentProcessor:
             '.doc': self._load_doc,
             '.txt': self._load_txt
         }
+        
+        # Add audio support if enabled
+        self.enable_audio = enable_audio
+        if enable_audio:
+            try:
+                self.audio_processor = create_audio_processor(backend="whisper")
+                # Add audio extensions
+                audio_extensions = {
+                    '.mp3': self._load_audio,
+                    '.wav': self._load_audio,
+                    '.m4a': self._load_audio,
+                    '.flac': self._load_audio,
+                    '.aac': self._load_audio,
+                    '.ogg': self._load_audio,
+                    '.wma': self._load_audio,
+                    '.mp4': self._load_audio,  # Audio from video
+                    '.avi': self._load_audio,  # Audio from video
+                    '.mov': self._load_audio,  # Audio from video
+                    '.mkv': self._load_audio   # Audio from video
+                }
+                self.supported_extensions.update(audio_extensions)
+                logger.info("Audio processing enabled with Whisper STT")
+            except Exception as e:
+                logger.warning(f"Failed to initialize audio processor: {e}")
+                self.enable_audio = False
+                self.audio_processor = None
     
     def _get_file_type(self, file_path: str) -> str:
         """Determine file type from extension"""
@@ -124,6 +154,35 @@ class DocumentProcessor:
             return documents
         except Exception as e:
             logger.error(f"Failed to load TXT {file_path}: {e}")
+            raise
+    
+    def _load_audio(self, file_path: str) -> List[Document]:
+        """Load audio document using Speech-to-Text"""
+        if not self.enable_audio or not self.audio_processor:
+            raise ValueError("Audio processing is not enabled")
+        
+        try:
+            filename = Path(file_path).name
+            logger.info(f"Starting audio transcription: {filename}")
+            
+            # Process audio and get transcription
+            audio_result = self.audio_processor.process_audio_for_rag(file_path, filename)
+            
+            # Create Document object similar to text documents
+            document = Document(
+                page_content=audio_result["content"],
+                metadata={
+                    "source": file_path,
+                    "filename": filename,
+                    **audio_result["metadata"]
+                }
+            )
+            
+            logger.info(f"Successfully transcribed audio: {filename} ({len(audio_result['content'])} characters)")
+            return [document]
+            
+        except Exception as e:
+            logger.error(f"Failed to load audio {file_path}: {e}")
             raise
     
     def load_document(self, file_path: str) -> List[Document]:

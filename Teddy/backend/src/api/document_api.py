@@ -49,8 +49,8 @@ class DocumentListResponse(BaseModel):
     documents: List[ProcessedDocumentResponse]
     total_documents: int
 
-# Global processor instance
-processor = DocumentProcessor()
+# Global processor instance with audio support enabled
+processor = DocumentProcessor(enable_audio=True)
 
 # Upload directory - ensure it matches search_api expectations
 UPLOAD_DIR = Path(__file__).parent.parent.parent / "data"
@@ -108,12 +108,20 @@ async def _upload_single_file(file: UploadFile) -> Dict[str, str]:
     
     # Check file extension
     file_extension = Path(file.filename).suffix.lower()
-    supported_extensions = ['.pdf', '.docx', '.doc', '.txt', '.md', '.rtf']
+    
+    # Document extensions
+    document_extensions = ['.pdf', '.docx', '.doc', '.txt', '.md', '.rtf']
+    
+    # Audio extensions for Speech-to-Text
+    audio_extensions = ['.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma', '.mp4', '.avi', '.mov', '.mkv']
+    
+    supported_extensions = document_extensions + audio_extensions
     
     if file_extension not in supported_extensions:
+        file_type = "audio" if file_extension in audio_extensions else "document"
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {file_extension}. Supported: {', '.join(supported_extensions)}"
+            detail=f"Unsupported {file_type} file type: {file_extension}. Supported: {', '.join(supported_extensions)}"
         )
     
     # Handle duplicate filenames by adding timestamp
@@ -169,9 +177,9 @@ async def process_document(
             chunk_overlap=chunk_overlap
         )
         
-        # Update processor config
+        # Update processor config with audio support
         global processor
-        processor = DocumentProcessor(config)
+        processor = DocumentProcessor(config, enable_audio=True)
         
         # Process the document
         processed_doc = processor.process_file(str(file_path), splitter_type)
@@ -219,7 +227,7 @@ async def upload_and_process_document(
         )
         
         global processor
-        processor = DocumentProcessor(config)
+        processor = DocumentProcessor(config, enable_audio=True)
         
         file_path = UPLOAD_DIR / filename
         processed_doc = processor.process_file(str(file_path), splitter_type)
