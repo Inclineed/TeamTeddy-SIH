@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import ollama
 
 from .semantic_search import SemanticSearchEngine
+from .config import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RAGConfig:
     """Configuration for RAG system"""
-    llm_model: str = "phi3:mini"
+    llm_model: str = settings.LLM_MODEL  # Ollama model name
     search_results: int = 5
     max_context_length: int = 4000
     temperature: float = 0.7
