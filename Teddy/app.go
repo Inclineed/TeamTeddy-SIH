@@ -18,46 +18,54 @@ func NewApp() *App {
 func (a *App) Startup(ctx context.Context) {
 	// Start FastAPI backend (non-blocking)
 	go func() {
-		// Try different Python paths
+		// Try different Python paths in order of preference
 		pythonPaths := []string{
-			"../.venv/Scripts/python.exe",
+			"C:/Users/Acer/Desktop/TeamTeddy/.venv/Scripts/python.exe", // Absolute path to your venv
+			".venv/Scripts/python.exe",                                 // Relative path from Teddy directory
 			"python",
 			"python3",
 		}
 
 		var cmd *exec.Cmd
+		var pythonFound string
+
 		for _, pythonPath := range pythonPaths {
-			if pythonPath == "../.venv/Scripts/python.exe" {
+			if pythonPath == "C:/Users/Acer/Desktop/TeamTeddy/.venv/Scripts/python.exe" || pythonPath == ".venv/Scripts/python.exe" {
 				// Check if virtual environment exists
-				if _, err := os.Stat("../.venv/Scripts/python.exe"); err == nil {
-					cmd = exec.Command(pythonPath, "./start_fastapi.py")
+				if _, err := os.Stat(pythonPath); err == nil {
+					cmd = exec.Command(pythonPath, "start_fastapi.py")
+					pythonFound = pythonPath
+					fmt.Printf("✅ Using Python from virtual environment: %s\n", pythonPath)
 					break
+				} else {
+					fmt.Printf("❌ Virtual environment not found at: %s\n", pythonPath)
 				}
 			} else {
-				// Try system Python with uvicorn
-				cmd = exec.Command(pythonPath, "-m", "uvicorn", "backend.python.server:app", "--host", "127.0.0.1", "--port", "8000")
-				break
+				// Try system Python
+				testCmd := exec.Command(pythonPath, "--version")
+				if err := testCmd.Run(); err == nil {
+					cmd = exec.Command(pythonPath, "start_fastapi.py")
+					pythonFound = pythonPath
+					fmt.Printf("✅ Using system Python: %s\n", pythonPath)
+					break
+				}
 			}
 		}
 
 		if cmd == nil {
-			fmt.Printf("No suitable Python interpreter found\n")
+			fmt.Printf("❌ No suitable Python interpreter found. Please ensure Python is installed and virtual environment is set up.\n")
 			return
 		}
 
-		cmd.Dir = "." // Set working directory to current directory
+		cmd.Dir = "." // Set working directory to current directory (Teddy folder)
+
+		fmt.Printf("🚀 Starting FastAPI backend with: %s\n", pythonFound)
+		fmt.Printf("📁 Working directory: %s\n", cmd.Dir)
+		fmt.Printf("🌐 Server will be available at: http://localhost:8000\n")
+
 		err := cmd.Run()
 		if err != nil {
-			fmt.Printf("Error starting FastAPI server: %s\n", err)
+			fmt.Printf("❌ Error starting FastAPI server: %s\n", err)
 		}
 	}()
-}
-
-// CallPython runs hello.py with a parameter
-func (a *App) CallPython(name string) string {
-	out, err := exec.Command("python", "backend/python/hello.py", name).Output()
-	if err != nil {
-		return fmt.Sprintf("Error running Python: %s", err)
-	}
-	return string(out)
 }
