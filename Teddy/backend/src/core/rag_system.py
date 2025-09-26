@@ -1,5 +1,5 @@
 """
-RAG Question-Answering System using Ollama gemma3:12b
+RAG Question-Answering System using Ollama phi3:mini
 Combines semantic search with LLM to provide contextual answers
 """
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RAGConfig:
     """Configuration for RAG system"""
-    llm_model: str = "gemma3:12b"
+    llm_model: str = "phi3:mini"
     search_results: int = 5
     max_context_length: int = 4000
     temperature: float = 0.7
@@ -39,7 +39,7 @@ class RAGConfig:
 class RAGQuestionAnswering:
     """
     RAG (Retrieval-Augmented Generation) system that combines semantic search
-    with Ollama gemma3:12b for generating contextual answers
+    with Ollama phi3:mini for generating contextual answers
     """
     
     def __init__(self, config: RAGConfig = None):
@@ -50,7 +50,7 @@ class RAGQuestionAnswering:
         # Initialize semantic search engine
         self.search_engine = SemanticSearchEngine()
         
-        # Check if gemma3:12b model is available
+        # Check if phi3:mini model is available
         self._check_llm_availability()
         
         logger.info(f"RAG system initialized with model: {self.config.llm_model}")
@@ -151,7 +151,7 @@ Respond with only: NEEDS_CONTEXT or GENERAL_KNOWLEDGE"""
             return f"I apologize, but I encountered an error while generating an answer: {str(e)}"
     
     def _check_llm_availability(self):
-        """Check if gemma3:12b model is available in Ollama"""
+        """Check if phi3:mini model is available in Ollama"""
         try:
             models_response = self.ollama_client.list()
             
@@ -237,7 +237,7 @@ ANSWER:"""
         return prompt
     
     def _generate_answer(self, prompt: str) -> str:
-        """Generate answer using Ollama gemma3:12b model"""
+        """Generate answer using Ollama phi3:mini model"""
         for attempt in range(self.config.max_retries):
             try:
                 response = self.ollama_client.chat(
@@ -267,7 +267,7 @@ ANSWER:"""
                     raise
     
     def _generate_answer_stream(self, prompt: str):
-        """Generate streaming answer using Ollama gemma3:12b model"""
+        """Generate streaming answer using Ollama phi3:mini model"""
         for attempt in range(self.config.max_retries):
             try:
                 response = self.ollama_client.chat(
