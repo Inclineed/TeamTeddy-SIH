@@ -183,14 +183,41 @@ function MessageBubble({ message, index }) {
           <div style={{
             width: '32px',
             height: '32px',
-            borderRadius: '50%',
-            background: currentTheme.accentGradient,
+            borderRadius: '8px',
+            background: 'transparent',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '4px'
+            marginBottom: '4px',
+            overflow: 'hidden'
           }}>
-            <span style={{ fontSize: '16px' }}>🤖</span>
+            <img 
+              src="/appicon.png" 
+              alt="Teddy AI"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+              onError={(e) => {
+                // Fallback to a different icon if logo fails to load
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: currentTheme.accentGradient,
+              display: 'none',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px',
+              color: '#ffffff'
+            }}>
+              🎯
+            </div>
           </div>
         )}
         
@@ -265,19 +292,7 @@ function MessageBubble({ message, index }) {
                   </div>
                 ))}
                 
-                {message.isStreaming && !message.isThinking && (
-                  <motion.span
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    style={{
-                      display: 'inline-block',
-                      marginLeft: '4px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    ▊
-                  </motion.span>
-                )}
+
               </>
             )}
           </div>
@@ -346,6 +361,11 @@ function ChatWindow({ activeChat, chatMessages, onUpdateMessages, chatSessions, 
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState(null);
   const [speechRecognition, setSpeechRecognition] = useState(null);
+  
+  // Audio recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
   
   // Search states
   const [isSearching, setIsSearching] = useState(false);
@@ -538,30 +558,65 @@ const handleSendMessage = async (e) => {
   onUpdateMessages(activeChat, messagesWithAssistant);
 
   try {
-    // Files are already uploaded, just get the filename for RAG query
-    let uploadedFileName = null;
-    if (completedFiles.length > 0) {
-      // Use the first uploaded file for RAG query (can be enhanced for multiple files)
-      uploadedFileName = completedFiles[0].uploadedFileName;
+    // Check file types for appropriate endpoint routing
+    const audioFiles = completedFiles.filter(f => f.type === 'audio');
+    const imageFiles = completedFiles.filter(f => f.type === 'image');
+    const documentFiles = completedFiles.filter(f => f.type === 'document');
+    
+    let ragResponse;
+    
+    if (imageFiles.length > 0) {
+      // Use multimodal query endpoint for image queries
+      const formData = new FormData();
+      formData.append('image_file', imageFiles[0].file); // Use the first image file
+      formData.append('text_query', messageContent || "What is this image about? Please provide a comprehensive analysis.");
+      
+      ragResponse = await fetch('http://localhost:8000/api/v1/rag/multimodal-query-stream', {
+        method: 'POST',
+        headers: {
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        body: formData
+      });
+    } else if (audioFiles.length > 0) {
+      // Use audio query endpoint for audio queries
+      const formData = new FormData();
+      formData.append('audio_file', audioFiles[0].file); // Use the first audio file
+      formData.append('query', messageContent || "What is this audio about? Please provide a comprehensive summary.");
+      
+      ragResponse = await fetch('http://localhost:8000/api/v1/rag/audio-query-stream', {
+        method: 'POST',
+        headers: {
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        body: formData
+      });
+    } else {
+      // Use regular RAG endpoint for text/document queries
+      let uploadedFileName = null;
+      if (documentFiles.length > 0) {
+        uploadedFileName = documentFiles[0].uploadedFileName;
+      }
+
+      const ragRequestBody = {
+        question: messageContent || "What is this document about? Please provide a comprehensive summary.",
+        source_file: uploadedFileName || "", // Use uploaded filename or default
+        search_results: 5,
+        temperature: 0.7
+      };
+
+      ragResponse = await fetch('http://localhost:8000/api/v1/rag/ask-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        body: JSON.stringify(ragRequestBody)
+      });
     }
-
-    // Send question to RAG streaming endpoint
-    const ragRequestBody = {
-      question: messageContent || "What is this document about? Please provide a comprehensive summary.",
-      source_file: uploadedFileName || "", // Use uploaded filename or default
-      search_results: 5,
-      temperature: 0.7
-    };
-
-    const ragResponse = await fetch('http://localhost:8000/api/v1/rag/ask-stream', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-      },
-      body: JSON.stringify(ragRequestBody)
-    });
 
     if (!ragResponse.ok) {
       throw new Error(`RAG request failed: ${ragResponse.status}`);
@@ -578,29 +633,109 @@ const handleSendMessage = async (e) => {
 
       const chunk = decoder.decode(value);
       
-      // Handle different response formats (SSE or plain text)
+      // Handle different response formats
       if (chunk.includes('data:')) {
         // Server-Sent Events format
         const lines = chunk.split('\n');
         for (const line of lines) {
           if (line.startsWith('data:')) {
-            const data = line.slice(6);
-            if (data.trim() === '[DONE]') break;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]' || !data) continue;
             
             try {
               const parsed = JSON.parse(data);
+              // Handle different response types from various endpoints
               if (parsed.content) {
+                streamedContent += parsed.content;
+              } else if (parsed.type === 'content' && parsed.content) {
+                streamedContent += parsed.content;
+              } else if (parsed.type === 'answer_chunk' && parsed.content) {
                 streamedContent += parsed.content;
               }
             } catch (parseError) {
-              // If not JSON, treat as plain text
-              streamedContent += data;
+              if (data && data !== '[DONE]') {
+                streamedContent += data;
+              }
             }
           }
         }
       } else {
-        // Plain text streaming
-        streamedContent += chunk;
+        // Handle concatenated JSON objects from audio endpoint
+        // Check if this looks like JSON objects
+        if (chunk.includes('{"type":')) {
+          // Use regex to extract all JSON objects
+          const jsonRegex = /\{'type':[^}]+\}/g;
+          const matches = chunk.match(jsonRegex);
+          
+          if (matches) {
+            for (const match of matches) {
+              try {
+                // Fix single quotes to double quotes for valid JSON
+                const validJsonStr = match.replace(/'/g, '"');
+                const parsed = JSON.parse(validJsonStr);
+                
+                // Only add content from content-type messages
+                if (parsed.type === 'content' && parsed.content) {
+                  streamedContent += parsed.content;
+                }
+              } catch (parseError) {
+                // Try alternative parsing for malformed JSON
+                const typeMatch = match.match(/'type':\s*'content'/);
+                const contentMatch = match.match(/'content':\s*'([^']+)'/);
+                
+                if (typeMatch && contentMatch) {
+                  streamedContent += contentMatch[1];
+                }
+              }
+            }
+          } else {
+            // Fallback: manual parsing for concatenated objects
+            let tempChunk = chunk;
+            let startIndex = 0;
+            
+            while (startIndex < tempChunk.length) {
+              const objStart = tempChunk.indexOf('{', startIndex);
+              if (objStart === -1) break;
+              
+              let braceCount = 0;
+              let objEnd = objStart;
+              
+              for (let i = objStart; i < tempChunk.length; i++) {
+                if (tempChunk[i] === '{') braceCount++;
+                if (tempChunk[i] === '}') braceCount--;
+                if (braceCount === 0) {
+                  objEnd = i;
+                  break;
+                }
+              }
+              
+              if (objEnd > objStart) {
+                const jsonStr = tempChunk.substring(objStart, objEnd + 1);
+                try {
+                  // Fix single quotes to double quotes
+                  const validJsonStr = jsonStr.replace(/'/g, '"');
+                  const parsed = JSON.parse(validJsonStr);
+                  
+                  if (parsed.type === 'content' && parsed.content) {
+                    streamedContent += parsed.content;
+                  }
+                } catch (parseError) {
+                  // Extract content manually if JSON parsing fails
+                  const contentMatch = jsonStr.match(/'content':\s*'([^']+)'/);
+                  if (contentMatch && jsonStr.includes("'type': 'content'")) {
+                    streamedContent += contentMatch[1];
+                  }
+                }
+                startIndex = objEnd + 1;
+              } else {
+                break;
+              }
+            }
+          }
+        } else {
+          // Plain text streaming (fallback)
+          streamedContent += chunk;
+        }
       }
 
       // Update the assistant message with streamed content
@@ -658,9 +793,13 @@ const handleSendMessage = async (e) => {
 
 
   const validateFile = (file) => {
-    const allowedTypes = ['application/pdf', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/webm'];
+    const allowedTypes = [
+      'application/pdf',
+      'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/webm',
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'
+    ];
     if (!allowedTypes.includes(file.type)) {
-      setFileError('Only PDF and audio files are allowed.');
+      setFileError('Only PDF, audio, and image files are allowed.');
       return false;
     }
     setFileError(null);
@@ -670,23 +809,24 @@ const handleSendMessage = async (e) => {
   const uploadFileAutomatically = async (file) => {
     const fileId = Date.now() + Math.random();
     const isAudioFile = file.type.startsWith('audio/');
+    const isImageFile = file.type.startsWith('image/');
     
     // Add file to state with uploading status
     const fileData = {
       id: fileId,
       name: file.name,
       size: file.size,
-      status: isAudioFile ? 'completed' : 'uploading',
-      type: isAudioFile ? 'audio' : 'document',
-      file: isAudioFile ? file : null,
+      status: (isAudioFile || isImageFile) ? 'completed' : 'uploading',
+      type: isAudioFile ? 'audio' : isImageFile ? 'image' : 'document',
+      file: (isAudioFile || isImageFile) ? file : null,
       uploadedFileName: null,
       error: null
     };
     
     setAttachedFiles(prev => [...prev, fileData]);
     
-    // For audio files, just add them as attachments without uploading
-    if (isAudioFile) {
+    // For audio and image files, just add them as attachments without uploading
+    if (isAudioFile || isImageFile) {
       return;
     }
     
@@ -878,14 +1018,40 @@ const handleSendMessage = async (e) => {
           <div style={{
             width: '40px',
             height: '40px',
-            borderRadius: '50%',
-            background: currentTheme.accentPrimary,
+            borderRadius: '8px',
+            background: 'transparent',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '20px'
+            overflow: 'hidden'
           }}>
-            🤖
+            <img 
+              src="/appicon.png" 
+              alt="Teddy RAG.AI Logo"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+              onError={(e) => {
+                // Fallback to emoji if logo fails to load
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: currentTheme.accentPrimary,
+              display: 'none',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px',
+              color: '#ffffff'
+            }}>
+              🤖
+            </div>
           </div>
           <h1 style={{
             color: currentTheme.accentPrimary,
@@ -1143,7 +1309,7 @@ const handleSendMessage = async (e) => {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,audio/*"
+          accept=".pdf,audio/*,image/*"
           multiple
           onChange={handleFileSelect}
           style={{ display: 'none' }}
@@ -1243,7 +1409,7 @@ const handleSendMessage = async (e) => {
                           }}
                         />
                       )}
-                      {file.status === 'completed' && (file.type === 'audio' ? '🎵' : '📄')}
+                      {file.status === 'completed' && (file.type === 'audio' ? '🎵' : file.type === 'image' ? '🖼️' : '📄')}
                       {file.status === 'error' && '❌'}
                     </span>
                     
@@ -1320,7 +1486,7 @@ const handleSendMessage = async (e) => {
                 color: currentTheme.accentPrimary
               }}>
                 <div style={{ fontSize: '24px', marginBottom: '8px' }}>📁</div>
-                <div>Drop PDF or audio files here</div>
+                <div>Drop PDF, audio, or image files here</div>
               </div>
             </motion.div>
           )}
@@ -1333,29 +1499,43 @@ const handleSendMessage = async (e) => {
           minHeight: '52px'
         }}>
           {/* Attachment button - Left */}
-          <button
+          <motion.button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading || isListening}
+            disabled={isListening}
+            whileHover={{ scale: !isListening ? 1.05 : 1 }}
+            whileTap={{ scale: 0.95 }}
+            animate={{
+              borderColor: isListening ? currentTheme.borderColor : currentTheme.borderColor,
+              backgroundColor: 'transparent'
+            }}
             style={{
               width: '52px',
               height: '52px',
               borderRadius: '16px',
               backgroundColor: 'transparent',
               border: `2px solid ${currentTheme.borderColor}`,
-              cursor: (isLoading || isListening) ? 'not-allowed' : 'pointer',
+              cursor: isListening ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '20px',
               color: currentTheme.textSecondary,
-              transition: 'all 0.2s ease',
-              opacity: (isLoading || isListening) ? 0.5 : 1,
+              transition: 'all 0.3s ease',
+              opacity: isListening ? 0.5 : 1,
               flexShrink: 0
             }}
           >
-            📎
-          </button>
+            <motion.span
+              animate={{
+                rotate: isListening ? 0 : 0,
+                scale: isListening ? 0.9 : 1
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              +
+            </motion.span>
+          </motion.button>
           
           {/* Text area - Center (expandable) */}
           <textarea
@@ -1448,10 +1628,10 @@ const handleSendMessage = async (e) => {
                   ease: "easeInOut"
                 }}
               >
-                🎤
+                <i className="fa-solid fa-microphone"></i>
               </motion.div>
             ) : (
-              '🎤'
+              <i className="fa-solid fa-microphone"></i>
             )}
           </motion.button>
           

@@ -15,9 +15,9 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:     "TeamTeddy",
-		Width:     800,
-		Height:    600,
+		Title:     "Teddy AI",
+		Width:     1200,
+		Height:    800,
 		OnStartup: app.Startup,
 		Bind: []interface{}{
 			app,

@@ -34,7 +34,7 @@ class MultimodalProcessor:
     """
     
     def __init__(self, 
-                 vision_model: str = "qwen2.5vl:7b",
+                 vision_model: str = "llava:7b",
                  max_image_size: Tuple[int, int] = (1024, 1024),
                  supported_formats: Optional[List[str]] = None):
         """
@@ -297,7 +297,7 @@ class MultimodalProcessor:
             raise
 
 # Factory function for easy initialization
-def create_multimodal_processor(model: str = "qwen2.5vl:7b", **kwargs) -> MultimodalProcessor:
+def create_multimodal_processor(model: str = "llava:7b", **kwargs) -> MultimodalProcessor:
     """
     Factory function to create MultimodalProcessor instance
     

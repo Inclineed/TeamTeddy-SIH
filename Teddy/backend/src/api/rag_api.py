@@ -3,7 +3,7 @@ FastAPI endpoints for RAG Question-Answering system
 Provides REST API for question answering with document context
 """
 
-from fastapi import APIRouter, HTTPException, Query, File, UploadFile
+from fastapi import APIRouter, HTTPException, Query, File, UploadFile, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, AsyncGenerator
@@ -16,6 +16,7 @@ from pathlib import Path
 from src.core.rag_system import RAGQuestionAnswering, RAGConfig
 from src.core.audio_processor import create_audio_processor
 from src.core.multimodal_processor import create_multimodal_processor
+import torch
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -311,10 +312,10 @@ async def update_configuration(
 @rag_app.post("/audio-query", response_model=AudioQueryResponse)
 async def audio_query(
     audio_file: UploadFile = File(..., description="Audio file to transcribe and query"),
-    additional_text: Optional[str] = Query(None, description="Additional text to combine with transcribed audio"),
-    source_file: Optional[str] = Query(None, description="Optional specific file to search within"),
-    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
-    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation")
+    additional_text: Optional[str] = Form(None, description="Additional text to combine with transcribed audio"),
+    source_file: Optional[str] = Form(None, description="Optional specific file to search within"),
+    search_results: Optional[int] = Form(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Form(0.7, description="LLM temperature for answer generation")
 ):
     """
     Speech-to-Text + RAG endpoint: Transcribe audio and answer questions
@@ -435,18 +436,23 @@ async def audio_query(
 @rag_app.post("/audio-query-stream")
 async def audio_query_stream(
     audio_file: UploadFile = File(..., description="Audio file to transcribe and query"),
-    additional_text: Optional[str] = Query(None, description="Additional text to combine with transcribed audio"),
-    source_file: Optional[str] = Query(None, description="Optional specific file to search within"),
-    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
-    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation")
+    additional_text: Optional[str] = Form(None, description="Additional text to combine with transcribed audio"),
+    source_file: Optional[str] = Form(None, description="Optional specific file to search within"),
+    search_results: Optional[int] = Form(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Form(0.7, description="LLM temperature for answer generation")
 ):
     """
     Streaming Speech-to-Text + RAG endpoint
     
-    Similar to audio-query but streams the response for real-time interaction
+    This endpoint:
+    1. Accepts an audio file upload
+    2. Transcribes the audio to text using Whisper STT
+    3. Optionally combines with additional text query
+    4. Uses the transcribed text as a question for RAG system
+    5. Streams the response in real-time
     """
     try:
-        # Validate audio file (same as above)
+        # Validate audio file
         if not audio_file.filename:
             raise HTTPException(status_code=400, detail="No audio file provided")
         
@@ -462,41 +468,73 @@ async def audio_query_stream(
         
         # Create temporary file for audio processing
         with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+            # Save uploaded audio to temp file
             content = await audio_file.read()
             temp_file.write(content)
             temp_file_path = temp_file.name
         
-        async def generate_audio_response():
+        async def generate_audio_stream():
             try:
-                # Initialize audio processor and transcribe
-                logger.info(f"Processing audio file for streaming: {audio_file.filename}")
+                # Send initial status
+                yield "data: " + json.dumps({
+                    "type": "status",
+                    "message": "Processing audio file...",
+                    "audio_filename": audio_file.filename
+                }) + "\n\n"
+                
+                # Initialize audio processor
+                logger.info(f"Processing audio file: {audio_file.filename}")
                 audio_processor = create_audio_processor(backend="whisper")
+                
+                # Transcribe audio
+                yield "data: " + json.dumps({
+                    "type": "status",
+                    "message": "Transcribing audio..."
+                }) + "\n\n"
+                
                 transcription_result = audio_processor.transcribe_audio(temp_file_path)
                 transcribed_text = transcription_result.text
                 
                 if not transcribed_text.strip():
                     yield "data: " + json.dumps({
+                        "type": "error",
                         "error": "No speech detected in audio file"
                     }) + "\n\n"
                     return
                 
-                # Send transcription result first
+                # Send transcription result
                 yield "data: " + json.dumps({
                     "type": "transcription",
                     "transcribed_text": transcribed_text,
                     "audio_metadata": {
                         "filename": audio_file.filename,
-                        "duration": transcription_result.duration,
+                        "file_extension": file_extension,
+                        "transcription_duration": transcription_result.duration,
+                        "transcription_language": transcription_result.language,
+                        "transcription_confidence": transcription_result.confidence,
                         "character_count": len(transcribed_text)
                     }
                 }) + "\n\n"
                 
-                # Combine with additional text if provided
+                logger.info(f"Audio transcribed successfully: {len(transcribed_text)} characters")
+                
+                # Combine transcribed text with additional text if provided
                 final_question = transcribed_text
                 if additional_text and additional_text.strip():
                     final_question = f"{transcribed_text} {additional_text}"
+                    
+                    yield "data: " + json.dumps({
+                        "type": "status",
+                        "message": "Combined transcription with additional text",
+                        "final_question": final_question
+                    }) + "\n\n"
                 
-                # Stream RAG response
+                # Get RAG system and stream the answer
+                yield "data: " + json.dumps({
+                    "type": "status",
+                    "message": "Generating answer..."
+                }) + "\n\n"
+                
                 rag = get_rag_system()
                 
                 # Temporarily update temperature if provided
@@ -505,18 +543,28 @@ async def audio_query_stream(
                     rag.config.temperature = temperature
                 
                 try:
+                    # Stream the answer using RAG system
                     async for chunk in rag.answer_question_stream(
                         final_question,
                         max_results=search_results
                     ):
-                        yield f"data: {chunk}\n\n"
+                        # Forward the RAG streaming chunks
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    
                 finally:
                     # Restore original temperature
                     rag.config.temperature = original_temperature
                 
-            except Exception as e:
-                logger.error(f"Streaming audio query failed: {e}")
+                # Send completion
                 yield "data: " + json.dumps({
+                    "type": "complete",
+                    "method": "audio_rag_stream"
+                }) + "\n\n"
+                
+            except Exception as e:
+                logger.error(f"Audio streaming query failed: {e}")
+                yield "data: " + json.dumps({
+                    "type": "error",
                     "error": f"Audio query processing failed: {str(e)}"
                 }) + "\n\n"
             finally:
@@ -525,7 +573,7 @@ async def audio_query_stream(
                     os.unlink(temp_file_path)
         
         return StreamingResponse(
-            generate_audio_response(), 
+            generate_audio_stream(),
             media_type="text/plain",
             headers={
                 "Cache-Control": "no-cache",
@@ -544,10 +592,10 @@ async def audio_query_stream(
 @rag_app.post("/multimodal-query", response_model=MultimodalQueryResponse)
 async def multimodal_query(
     image_file: UploadFile = File(..., description="Image file to analyze"),
-    text_query: str = Query(..., description="Text question about the image"),
-    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
-    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation"),
-    use_document_context: Optional[bool] = Query(True, description="Whether to include document context in analysis")
+    text_query: str = Form(..., description="Text question about the image"),
+    search_results: Optional[int] = Form(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Form(0.7, description="LLM temperature for answer generation"),
+    use_document_context: Optional[bool] = Form(True, description="Whether to include document context in analysis")
 ):
     """
     Multimodal RAG endpoint: Analyze image with text query
@@ -587,7 +635,7 @@ async def multimodal_query(
         try:
             # Initialize multimodal processor
             logger.info(f"Processing multimodal query - Image: {image_file.filename}, Query: {text_query[:100]}...")
-            multimodal_processor = create_multimodal_processor(model="qwen2.5vl:7b")
+            multimodal_processor = create_multimodal_processor(model="llava:7b")
             
             # Get document context if requested
             context_documents = []
@@ -595,7 +643,7 @@ async def multimodal_query(
                 try:
                     rag = get_rag_system()
                     # Search for relevant documents using the text query
-                    search_results_data = rag.search_engine.search(text_query, max_results=search_results)
+                    search_results_data = rag.search_engine.search(text_query, n_results=search_results)
                     context_documents = search_results_data if search_results_data else []
                     logger.info(f"Retrieved {len(context_documents)} context documents")
                 except Exception as e:
@@ -617,9 +665,9 @@ async def multimodal_query(
             if context_documents:
                 sources = [
                     {
-                        "content": doc.get("content", "")[:500] + "..." if len(doc.get("content", "")) > 500 else doc.get("content", ""),
-                        "metadata": doc.get("metadata", {}),
-                        "relevance_score": doc.get("score", 0.0)
+                        "content": doc.content[:500] + "..." if len(doc.content) > 500 else doc.content,
+                        "metadata": doc.metadata,
+                        "relevance_score": doc.score
                     }
                     for doc in context_documents[:search_results]
                 ]
@@ -651,10 +699,10 @@ async def multimodal_query(
 @rag_app.post("/multimodal-query-stream")
 async def multimodal_query_stream(
     image_file: UploadFile = File(..., description="Image file to analyze"),
-    text_query: str = Query(..., description="Text question about the image"),
-    search_results: Optional[int] = Query(5, description="Number of context chunks to retrieve"),
-    temperature: Optional[float] = Query(0.7, description="LLM temperature for answer generation"),
-    use_document_context: Optional[bool] = Query(True, description="Whether to include document context in analysis")
+    text_query: str = Form(..., description="Text question about the image"),
+    search_results: Optional[int] = Form(5, description="Number of context chunks to retrieve"),
+    temperature: Optional[float] = Form(0.7, description="LLM temperature for answer generation"),
+    use_document_context: Optional[bool] = Form(True, description="Whether to include document context in analysis")
 ):
     """
     Streaming Multimodal RAG endpoint
@@ -662,9 +710,12 @@ async def multimodal_query_stream(
     Similar to multimodal-query but streams the response for real-time interaction
     """
     try:
-        # Validate image file (same as above)
+        # Validate inputs
         if not image_file.filename:
             raise HTTPException(status_code=400, detail="No image file provided")
+        
+        if not text_query:
+            raise HTTPException(status_code=400, detail="Text query is required for multimodal analysis")
         
         # Check image file extension
         image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp']
@@ -686,7 +737,7 @@ async def multimodal_query_stream(
             try:
                 # Initialize multimodal processor
                 logger.info(f"Processing streaming multimodal query - Image: {image_file.filename}")
-                multimodal_processor = create_multimodal_processor(model="qwen2.5vl:7b")
+                multimodal_processor = create_multimodal_processor(model="llava:7b")
                 
                 # First, send image analysis
                 yield "data: " + json.dumps({
@@ -717,7 +768,7 @@ async def multimodal_query_stream(
                     
                     try:
                         rag = get_rag_system()
-                        search_results_data = rag.search_engine.search(text_query, max_results=search_results)
+                        search_results_data = rag.search_engine.search(text_query, n_results=search_results)
                         context_documents = search_results_data if search_results_data else []
                         
                         yield "data: " + json.dumps({
@@ -747,7 +798,7 @@ async def multimodal_query_stream(
                 
                 if context_documents:
                     context_text = "\n\n".join([
-                        f"Document {i+1}: {doc.get('content', '')[:500]}..."
+                        f"Document {i+1}: {doc.content[:500]}..."
                         for i, doc in enumerate(context_documents[:3])
                     ])
                     prompt_parts.append(f"Relevant Context:\n{context_text}")
@@ -761,7 +812,7 @@ async def multimodal_query_stream(
                 
                 # Stream the final response
                 response_stream = multimodal_processor.ollama_client.chat(
-                    model="qwen2.5vl:7b",
+                    model="llava:7b",
                     messages=[
                         {
                             'role': 'user',
